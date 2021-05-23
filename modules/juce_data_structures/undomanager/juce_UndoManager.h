@@ -26,6 +26,44 @@
 namespace juce
 {
 
+struct ActionSet
+{
+    ActionSet(const String& transactionName) : name(transactionName)
+    {}
+
+    bool perform() const
+    {
+        for (auto* a : actions)
+            if (!a->perform())
+                return false;
+
+        return true;
+    }
+
+    bool undo() const
+    {
+        for (int i = actions.size(); --i >= 0;)
+            if (!actions.getUnchecked(i)->undo())
+                return false;
+
+        return true;
+    }
+
+    int getTotalSize() const
+    {
+        int total = 0;
+
+        for (auto* a : actions)
+            total += a->getSizeInUnits();
+
+        return total;
+    }
+
+    OwnedArray<UndoableAction> actions;
+    String name;
+    Time time{ Time::getCurrentTime() };
+};
+	
 //==============================================================================
 /**
     Manages a list of undo/redo commands.
@@ -206,6 +244,10 @@ public:
     */
     void getActionsInCurrentTransaction (Array<const UndoableAction*>& actionsFound) const;
 
+    //std::vector<const UndoableAction*> getCurrentActions() const;
+
+    std::vector<ActionSet*> getTransactions() const;
+	
     /** Returns the number of UndoableAction objects that have been performed during the
         transaction that is currently open.
         @see getActionsInCurrentTransaction
@@ -245,15 +287,18 @@ public:
     /** Returns true if the caller code is in the middle of an undo or redo action. */
     bool isPerformingUndoRedo() const;
 
+    /** Returns true if the supplied transaction is the current active transaction. */
+    bool isCurrentTransaction(const ActionSet* transaction) const;
+	
 private:
     //==============================================================================
-    struct ActionSet;
+
     OwnedArray<ActionSet> transactions, stashedFutureTransactions;
     String newTransactionName;
     int totalUnitsStored = 0, maxNumUnitsToKeep = 0, minimumTransactionsToKeep = 0, nextIndex = 0;
     bool newTransaction = true, isInsideUndoRedoCall = false;
-    ActionSet* getCurrentSet() const;
     ActionSet* getNextSet() const;
+    ActionSet* getCurrentSet() const;
     void moveFutureTransactionsToStash();
     void restoreStashedFutureTransactions();
     void dropOldTransactionsIfTooLarge();

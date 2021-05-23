@@ -129,6 +129,29 @@ public:
         callListeners (nullptr, [&] (Listener& l) { l.valueTreeParentChanged (tree); });
     }
 
+	void doSetPropertyAction (UndoManager* undoManager, Ptr targetObject, const Identifier& propertyName,
+        const var& newVal, const var& oldVal, bool isAdding, bool isDeleting,
+        ValueTree::Listener* listenerToExclude = nullptr)
+    {
+        Array<const UndoableAction*> actionsFound;
+        undoManager->getActionsInCurrentTransaction(actionsFound);
+
+        const auto last = actionsFound.getLast();
+    	
+    	//if(const auto previousSetPropAction = dynamic_cast<const SetPropertyAction*>(last))
+    	//{
+    	//	if(!previousSetPropAction->isSameTargetAndProperty(*this, propertyName))
+    	//	{
+     //           undoManager->beginNewTransaction("SetValueTreeProperty");
+    	//	}
+    	//} else
+    	//{
+     //       undoManager->beginNewTransaction("SetValueTreeProperty");
+    	//}
+        undoManager->perform(new SetPropertyAction(*this, propertyName, newVal, oldVal,
+            false, false, listenerToExclude), propertyName.toString());
+    }
+	
     void setProperty (const Identifier& name, const var& newValue, UndoManager* undoManager,
                       ValueTree::Listener* listenerToExclude = nullptr)
     {
@@ -142,13 +165,17 @@ public:
             if (auto* existingValue = properties.getVarPointer (name))
             {
                 if (*existingValue != newValue)
-                    undoManager->perform (new SetPropertyAction (*this, name, newValue, *existingValue,
-                                                                 false, false, listenerToExclude));
+                {
+                    //auto setPropertyAction = actionFactory.createSetPropertyAction(*this, name, newValue, *existingValue,
+                    //    false, false, listenerToExclude);
+                    //undoManager->perform(setPropertyAction);
+                    doSetPropertyAction(undoManager, *this, name, newValue, *existingValue, false, false, listenerToExclude);
+                	
+                }
             }
             else
             {
-                undoManager->perform (new SetPropertyAction (*this, name, newValue, {},
-                                                             true, false, listenerToExclude));
+                doSetPropertyAction (undoManager, *this, name, newValue, {}, true, false, listenerToExclude);
             }
         }
     }
@@ -168,7 +195,7 @@ public:
         else
         {
             if (properties.contains (name))
-                undoManager->perform (new SetPropertyAction (*this, name, {}, properties[name], false, true));
+                doSetPropertyAction (undoManager, *this, name, {}, properties[name], false, true);
         }
     }
 
@@ -186,8 +213,8 @@ public:
         else
         {
             for (auto i = properties.size(); --i >= 0;)
-                undoManager->perform (new SetPropertyAction (*this, properties.getName (i), {},
-                                                             properties.getValueAt (i), false, true));
+                doSetPropertyAction (undoManager, *this, properties.getName (i), {},
+                                                             properties.getValueAt (i), false, true);
         }
     }
 
@@ -273,7 +300,7 @@ public:
                     if (! isPositiveAndBelow (index, children.size()))
                         index = children.size();
 
-                    undoManager->perform (new AddOrRemoveChildAction (*this, index, child));
+                    undoManager->perform (new AddOrRemoveChildAction (*this, index, child), "addChild");
                 }
             }
             else
@@ -298,7 +325,7 @@ public:
             }
             else
             {
-                undoManager->perform (new AddOrRemoveChildAction (*this, childIndex, {}));
+                undoManager->perform (new AddOrRemoveChildAction (*this, childIndex, {}), "removeChild");
             }
         }
     }
@@ -327,7 +354,7 @@ public:
                 if (! isPositiveAndBelow (newIndex, children.size()))
                     newIndex = children.size() - 1;
 
-                undoManager->perform (new MoveChildAction (*this, currentIndex, newIndex));
+                undoManager->perform (new MoveChildAction (*this, currentIndex, newIndex),"moveChild");
             }
         }
     }
@@ -408,7 +435,7 @@ public:
     }
 
     //==============================================================================
-    struct SetPropertyAction  : public UndoableAction
+    struct SetPropertyAction  : public UndoableAction, public ValueTree::SetTreePropertyAction
     {
         SetPropertyAction (Ptr targetObject, const Identifier& propertyName,
                            const var& newVal, const var& oldVal, bool isAdding, bool isDeleting,
@@ -420,6 +447,36 @@ public:
         {
         }
 
+    	bool isSameTargetAndProperty(const Ptr& otherTarget, const Identifier& otherName) const
+        {
+            return target == otherTarget && name == otherName;
+        }
+    	
+        juce::String getPropertyName() override
+        {
+            return name.toString();
+        }
+    	
+        var getPreviousValue() override
+        {
+            return oldValue;
+        }
+    	
+        var getCurrentValue() override
+    	{
+            return newValue;
+        }
+
+    	Identifier getTreeType() override
+        {
+            return target->type;
+        }
+
+    	ValueTree getTree() override
+        {
+            return ValueTree(target);
+        }
+    	
         bool perform() override
         {
             jassert (! (isAddingNewProperty && target->hasProperty (name)));
