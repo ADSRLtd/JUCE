@@ -53,7 +53,7 @@ JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
 #endif
 
 #include <juce_audio_basics/native/juce_mac_CoreAudioLayouts.h>
-#include <juce_audio_devices/native/juce_MidiDataConcatenator.h>
+#include <juce_audio_basics/midi/juce_MidiDataConcatenator.h>
 #include "juce_AU_Shared.h"
 
 namespace juce
@@ -876,6 +876,20 @@ public:
         desc.numInputChannels = getTotalNumInputChannels();
         desc.numOutputChannels = getTotalNumOutputChannels();
         desc.isInstrument = (componentDesc.componentType == kAudioUnitType_MusicDevice);
+    }
+
+    void getExtensions (ExtensionsVisitor& visitor) const override
+    {
+        struct Extensions : public ExtensionsVisitor::AudioUnitClient
+        {
+            explicit Extensions (const AudioUnitPluginInstance* instanceIn) : instance (instanceIn) {}
+
+            void* getAudioUnitHandle() const noexcept override   { return instance->audioUnit; }
+
+            const AudioUnitPluginInstance* instance = nullptr;
+        };
+
+        visitor.visitAudioUnitClient (Extensions { this });
     }
 
     void* getPlatformSpecificData() override             { return audioUnit; }

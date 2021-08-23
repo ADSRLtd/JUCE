@@ -29,22 +29,6 @@
 @end
 
 //==============================================================================
-#if defined (MAC_OS_X_VERSION_10_8) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_8) \
-  && USE_COREGRAPHICS_RENDERING && JUCE_COREGRAPHICS_DRAW_ASYNC
-static const juce::Identifier disableAsyncLayerBackedViewIdentifier { "disableAsyncLayerBackedView" };
-
-void setComponentAsyncLayerBackedViewDisabled (juce::Component& comp, bool shouldDisableAsyncLayerBackedView)
-{
-    comp.getProperties().set (disableAsyncLayerBackedViewIdentifier, shouldDisableAsyncLayerBackedView);
-}
-
-bool getComponentAsyncLayerBackedViewDisabled (juce::Component& comp)
-{
-    return comp.getProperties()[disableAsyncLayerBackedViewIdentifier];
-}
-#endif
-
-//==============================================================================
 namespace juce
 {
     typedef void (*AppFocusChangeCallback)();
@@ -111,6 +95,16 @@ public:
                                                          backing: NSBackingStoreBuffered
                                                            defer: YES];
             setOwner (window, this);
+
+          #if JUCE_OBJC_HAS_AVAILABLE_FEATURE || (defined (MAC_OS_X_VERSION_10_10) && MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_10)
+           #if JUCE_OBJC_HAS_AVAILABLE_FEATURE
+            if (@available (macOS 10.10, *))
+           #endif
+            {
+                [window setAccessibilityElement: component.getAccessibilityHandler() != nullptr];
+            }
+          #endif
+
             [window orderOut: nil];
             [window setDelegate: (id<NSWindowDelegate>) window];
 
@@ -485,9 +479,22 @@ public:
     void toFront (bool makeActiveWindow) override
     {
         if (isSharedWindow)
-            [[view superview] addSubview: view
-                              positioned: NSWindowAbove
-                              relativeTo: nil];
+        {
+            NSView* superview = [view superview];
+            NSMutableArray* subviews = [NSMutableArray arrayWithArray: [superview subviews]];
+
+            const auto isFrontmost = [[subviews lastObject] isEqual: view];
+
+            if (! isFrontmost)
+            {
+                [view retain];
+                [subviews removeObject: view];
+                [subviews addObject: view];
+
+                [superview setSubviews: subviews];
+                [view release];
+            }
+        }
 
         if (window != nil && component.isVisible())
         {
@@ -514,9 +521,26 @@ public:
         {
             if (isSharedWindow)
             {
-                [[view superview] addSubview: view
-                                  positioned: NSWindowBelow
-                                  relativeTo: otherPeer->view];
+                NSView* superview = [view superview];
+                NSMutableArray* subviews = [NSMutableArray arrayWithArray: [superview subviews]];
+
+                const auto otherViewIndex = [subviews indexOfObject: otherPeer->view];
+
+                if (otherViewIndex == NSNotFound)
+                    return;
+
+                const auto isBehind = [subviews indexOfObject: view] < otherViewIndex;
+
+                if (! isBehind)
+                {
+                    [view retain];
+                    [subviews removeObject: view];
+                    [subviews insertObject: view
+                                   atIndex: otherViewIndex];
+
+                    [superview setSubviews: subviews];
+                    [view release];
+                }
             }
             else if (component.isVisible())
             {
@@ -612,6 +636,9 @@ public:
 
     void redirectMouseEnter (NSEvent* ev)
     {
+        if (shouldIgnoreMouseEnterExit (ev))
+            return;
+
         Desktop::getInstance().getMainMouseSource().forceMouseCursorUpdate();
         ModifierKeys::currentModifiers = ModifierKeys::currentModifiers.withoutMouseButtons();
         sendMouseEvent (ev);
@@ -619,6 +646,9 @@ public:
 
     void redirectMouseExit (NSEvent* ev)
     {
+        if (shouldIgnoreMouseEnterExit (ev))
+            return;
+
         ModifierKeys::currentModifiers = ModifierKeys::currentModifiers.withoutMouseButtons();
         sendMouseEvent (ev);
     }
@@ -1315,7 +1345,14 @@ public:
 
     static NSArray* getSupportedDragTypes()
     {
-        return [NSArray arrayWithObjects: (NSString*) kUTTypeFileURL, (NSString*) kPasteboardTypeFileURLPromise, NSPasteboardTypeString, nil];
+        const auto type =
+               #if defined (MAC_OS_X_VERSION_10_13) && MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_13
+                NSPasteboardTypeFileURL;
+               #else
+                kUTTypeFileURL;
+               #endif
+
+        return [NSArray arrayWithObjects: (NSString*) type, (NSString*) kPasteboardTypeFileURLPromise, NSPasteboardTypeString, nil];
     }
 
     BOOL sendDragCallback (const int type, id <NSDraggingInfo> sender)
@@ -1481,6 +1518,12 @@ public:
 private:
     static NSView* createViewInstance();
     static NSWindow* createWindowInstance();
+
+    bool shouldIgnoreMouseEnterExit (NSEvent* ev) const
+    {
+        auto* eventTrackingArea = [ev trackingArea];
+        return eventTrackingArea != nil && ! [[view trackingAreas] containsObject: eventTrackingArea];
+    }
 
     static void setOwner (id viewOrWindow, NSViewComponentPeer* newOwner)
     {
@@ -1660,7 +1703,7 @@ struct NSViewComponentPeerWrapper  : public Base
 
     static NSViewComponentPeer* getOwner (id self)
     {
-        return Base::template getIvar<NSViewComponentPeer*> (self, "owner");
+        return getIvar<NSViewComponentPeer*> (self, "owner");
     }
 
     static id getAccessibleChild (id self)
@@ -1751,6 +1794,8 @@ struct JuceNSViewClass   : public NSViewComponentPeerWrapper<ObjCClass<NSView>>
         addMethod (NSViewComponentPeer::asyncMouseUpSelector,   asyncMouseUp,             "v@:@");
         addMethod (NSViewComponentPeer::frameChangedSelector,   frameChanged,             "v@:@");
         addMethod (NSViewComponentPeer::becomeKeySelector,      becomeKey,                "v@:@");
+
+        addMethod (@selector (performKeyEquivalent:),           performKeyEquivalent,     "c@:@");
 
         addProtocol (@protocol (NSTextInput));
 
@@ -2113,6 +2158,34 @@ private:
 
         return sendSuperclassMessage<id> (self, @selector (accessibilityAttributeValue:), attribute);
     }
+
+    static bool tryPassingKeyEventToPeer (NSEvent* e)
+    {
+        if ([e type] != NSEventTypeKeyDown && [e type] != NSEventTypeKeyUp)
+            return false;
+
+        if (auto* focused = Component::getCurrentlyFocusedComponent())
+        {
+            if (auto* peer = dynamic_cast<NSViewComponentPeer*> (focused->getPeer()))
+            {
+                return [e type] == NSEventTypeKeyDown ? peer->redirectKeyDown (e)
+                                                      : peer->redirectKeyUp (e);
+            }
+        }
+
+        return false;
+    }
+
+    static BOOL performKeyEquivalent (id self, SEL s, NSEvent* event)
+    {
+        // We try passing shortcut keys to the currently focused component first.
+        // If the component doesn't want the event, we'll fall back to the superclass
+        // implementation, which will pass the event to the main menu.
+        if (tryPassingKeyEventToPeer (event))
+            return YES;
+
+        return sendSuperclassMessage<BOOL> (self, s, event);
+    }
 };
 
 //==============================================================================
@@ -2132,9 +2205,10 @@ struct JuceNSWindowClass   : public NSViewComponentPeerWrapper<ObjCClass<NSWindo
         addMethod (@selector (zoom:),                               zoom,                      "v@:@");
         addMethod (@selector (windowWillStartLiveResize:),          windowWillStartLiveResize, "v@:@");
         addMethod (@selector (windowDidEndLiveResize:),             windowDidEndLiveResize,    "v@:@");
-        addMethod (@selector (window:shouldPopUpDocumentPathMenu:), shouldPopUpPathMenu, "B@:@", @encode (NSMenu*));
+        addMethod (@selector (window:shouldPopUpDocumentPathMenu:), shouldPopUpPathMenu, "c@:@", @encode (NSMenu*));
         addMethod (@selector (isFlipped),                           isFlipped,                 "c@:");
 
+        addMethod (@selector (accessibilityTitle),                  getAccessibilityTitle,     "@@:");
         addMethod (@selector (accessibilityLabel),                  getAccessibilityLabel,     "@@:");
         addMethod (@selector (accessibilityTopLevelUIElement),      getAccessibilityWindow,    "@@:");
         addMethod (@selector (accessibilityWindow),                 getAccessibilityWindow,    "@@:");
@@ -2142,7 +2216,7 @@ struct JuceNSWindowClass   : public NSViewComponentPeerWrapper<ObjCClass<NSWindo
         addMethod (@selector (accessibilitySubrole),                getAccessibilitySubrole,   "@@:");
 
         addMethod (@selector (window:shouldDragDocumentWithEvent:from:withPasteboard:),
-                   shouldAllowIconDrag, "B@:@", @encode (NSEvent*), @encode (NSPoint), @encode (NSPasteboard*));
+                   shouldAllowIconDrag, "c@:@", @encode (NSEvent*), @encode (NSPoint), @encode (NSPasteboard*));
 
         addProtocol (@protocol (NSWindowDelegate));
 
@@ -2223,10 +2297,10 @@ private:
         if (owner == nullptr || owner->isZooming)
             return proposedFrameSize;
 
-        NSRect frameRect = [(NSWindow*) self frame];
+        NSRect frameRect = flippedScreenRect ([(NSWindow*) self frame]);
         frameRect.size = proposedFrameSize;
 
-        frameRect = owner->constrainRect (frameRect);
+        frameRect = owner->constrainRect (flippedScreenRect (frameRect));
 
         owner->dismissModals();
 
@@ -2288,6 +2362,11 @@ private:
             return owner->windowRepresentsFile;
 
         return false;
+    }
+
+    static NSString* getAccessibilityTitle (id self, SEL)
+    {
+        return [self title];
     }
 
     static NSString* getAccessibilityLabel (id self, SEL)

@@ -80,6 +80,10 @@ JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4355)
 #define JUCE_VST_WRAPPER_INVOKE_MAIN  effect = module->moduleMain ((Vst2::audioMasterCallback) &audioMaster);
 #endif
 
+#ifndef JUCE_VST_FALLBACK_HOST_NAME
+ #define JUCE_VST_FALLBACK_HOST_NAME "Juce VST Host"
+#endif
+
 //==============================================================================
 namespace juce
 {
@@ -1250,6 +1254,20 @@ struct VSTPluginInstance     : public AudioPluginInstance,
         setLatencySamples (vstEffect->initialDelay);
     }
 
+    void getExtensions (ExtensionsVisitor& visitor) const override
+    {
+        struct Extensions : public ExtensionsVisitor::VSTClient
+        {
+            explicit Extensions (const VSTPluginInstance* instanceIn) : instance (instanceIn) {}
+
+            void* getAEffectPtr() const noexcept override   { return instance->vstEffect; }
+
+            const VSTPluginInstance* instance = nullptr;
+        };
+
+        visitor.visitVSTClient (Extensions { this });
+    }
+
     void* getPlatformSpecificData() override    { return vstEffect; }
 
     const String getName() const override
@@ -1964,6 +1982,21 @@ struct VSTPluginInstance     : public AudioPluginInstance,
         return false;
     }
 
+    bool updateSizeFromEditor (int w, int h)
+    {
+        editorSize = { w, h };
+
+        if (auto* editor = getActiveEditor())
+        {
+            editor->setSize (w, h);
+            return true;
+        }
+
+        return false;
+    }
+
+    Rectangle<int> getEditorSize() const { return editorSize; }
+
     Vst2::AEffect* vstEffect;
     ModuleHandle::Ptr vstModule;
 
@@ -2042,6 +2075,7 @@ private:
     AudioBuffer<double> tmpBufferDouble;
     HeapBlock<double*> channelBufferDouble;
     std::unique_ptr<VST2BypassParameter> bypassParam;
+    Rectangle<int> editorSize;
 
     std::unique_ptr<VSTXMLInfo> xmlInfo;
 
@@ -2066,7 +2100,7 @@ private:
 
     static pointer_sized_int getHostName (char* name)
     {
-        String hostName ("Juce VST Host");
+        String hostName (JUCE_VST_FALLBACK_HOST_NAME);
 
         if (auto* app = JUCEApplicationBase::getInstance())
             hostName = app->getApplicationName();
@@ -2116,13 +2150,13 @@ private:
             if (auto* peer = ed->getTopLevelComponent()->getPeer())
             {
                 auto scale = peer->getPlatformScaleFactor();
-                ed->setSize (roundToInt (width / scale), roundToInt (height / scale));
+                updateSizeFromEditor (roundToInt (width / scale), roundToInt (height / scale));
 
                 return;
             }
            #endif
 
-            ed->setSize (width, height);
+            updateSizeFromEditor (width, height);
         }
     }
 
@@ -2773,9 +2807,9 @@ public:
         dispatch (Vst2::effEditGetRect, 0, 0, &rect, 0);
 
         if (rect != nullptr)
-            setSize (rect->right - rect->left, rect->bottom - rect->top);
+            updateSizeFromEditor (rect->right - rect->left, rect->bottom - rect->top);
         else
-            setSize (1, 1);
+            updateSizeFromEditor (1, 1);
 
         setOpaque (true);
         setVisible (true);
@@ -2799,6 +2833,12 @@ public:
     }
 
     //==============================================================================
+    void updateSizeFromEditor (int w, int h)
+    {
+        if (! plugin.updateSizeFromEditor (w, h))
+            setSize (w, h);
+    }
+
    #if JUCE_MAC
     void paint (Graphics& g) override
     {
@@ -2830,9 +2870,9 @@ public:
    #else
     void paint (Graphics& g) override
     {
+       #if JUCE_LINUX || JUCE_BSD
         if (isOpen)
         {
-           #if JUCE_LINUX || JUCE_BSD
             if (pluginWindow != 0)
             {
                 auto clip = g.getClipBounds();
@@ -2841,9 +2881,9 @@ public:
                                                        static_cast<unsigned int> (clip.getWidth()),
                                                        static_cast<unsigned int> (clip.getHeight()), True);
             }
-           #endif
         }
         else
+       #endif
         {
             g.fillAll (Colours::black);
         }
@@ -2858,24 +2898,33 @@ public:
         {
             const ScopedValueSetter<bool> recursiveResizeSetter (recursiveResize, true);
 
-            auto pos = (peer->getAreaCoveredBy (*this).toFloat() * nativeScaleFactor).toNearestInt();
+            const auto pos = (peer->getAreaCoveredBy (*this).toFloat() * nativeScaleFactor).toNearestInt();
 
            #if JUCE_WINDOWS
             if (pluginHWND != 0)
             {
                 ScopedThreadDPIAwarenessSetter threadDpiAwarenessSetter { pluginHWND };
-                MoveWindow (pluginHWND, pos.getX(), pos.getY(), pos.getWidth(), pos.getHeight(), TRUE);
+                SetWindowPos (pluginHWND,
+                              HWND_BOTTOM,
+                              pos.getX(),
+                              pos.getY(),
+                              0,
+                              0,
+                              SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER);
             }
            #elif JUCE_LINUX || JUCE_BSD
             if (pluginWindow != 0)
             {
-                X11Symbols::getInstance()->xMoveResizeWindow (display, pluginWindow,
-                                                              pos.getX(), pos.getY(),
-                                                              (unsigned int) pos.getWidth(),
-                                                              (unsigned int) pos.getHeight());
-
-                X11Symbols::getInstance()->xMapRaised (display, pluginWindow);
-                X11Symbols::getInstance()->xFlush (display);
+                const auto editorSize = plugin.getEditorSize();
+                auto* symbols = X11Symbols::getInstance();
+                symbols->xMoveResizeWindow (display,
+                                            pluginWindow,
+                                            pos.getX(),
+                                            pos.getY(),
+                                            (unsigned int) editorSize.getWidth(),
+                                            (unsigned int) editorSize.getHeight());
+                symbols->xMapRaised (display, pluginWindow);
+                symbols->xFlush (display);
             }
            #endif
         }
@@ -2894,12 +2943,10 @@ public:
             setScaleFactorAndDispatchMessage (peer->getPlatformScaleFactor());
 
        #if JUCE_LINUX || JUCE_BSD
-        SafePointer<VSTPluginWindow> safeThis (this);
-
-        MessageManager::callAsync ([this, safeThis]
+        MessageManager::callAsync ([safeThis = SafePointer<VSTPluginWindow> { this }]
         {
             if (safeThis != nullptr)
-                componentMovedOrResized (true, true);
+                safeThis->componentMovedOrResized (true, true);
         });
        #else
         componentMovedOrResized (true, true);
@@ -3055,7 +3102,7 @@ private:
         w = jmax (w, 32);
         h = jmax (h, 32);
 
-        setSize (w, h);
+        updateSizeFromEditor (w, h);
 
         startTimer (18 + juce::Random::getSystemRandom().nextInt (5));
         repaint();
@@ -3171,7 +3218,7 @@ private:
         w = jmax (w, 32);
         h = jmax (h, 32);
 
-        setSize (w, h);
+        updateSizeFromEditor (w, h);
 
        #if JUCE_WINDOWS
         checkPluginWindowSize();
@@ -3254,7 +3301,7 @@ private:
                 // If plug-in isn't DPI aware then we need to resize our window, but this may cause a recursive resize
                 // so add a check
                 if (! willCauseRecursiveResize (w, h))
-                    setSize (w, h);
+                    updateSizeFromEditor (w, h);
 
                 sizeCheckCount = 0;
             }

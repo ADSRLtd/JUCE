@@ -1630,6 +1630,7 @@ void Slider::valueChanged() {}
 void Slider::setPopupMenuEnabled (bool menuEnabled)         { pimpl->menuEnabled = menuEnabled; }
 void Slider::setScrollWheelEnabled (bool enabled)           { pimpl->scrollWheelEnabled = enabled; }
 
+bool Slider::isScrollWheelEnabled() const noexcept          { return pimpl->scrollWheelEnabled; }
 bool Slider::isHorizontal() const noexcept                  { return pimpl->isHorizontal(); }
 bool Slider::isVertical() const noexcept                    { return pimpl->isVertical(); }
 bool Slider::isRotary() const noexcept                      { return pimpl->isRotary(); }
@@ -1677,6 +1678,67 @@ void Slider::mouseWheelMove (const MouseEvent& e, const MouseWheelDetails& wheel
     if (! (isEnabled() && pimpl->mouseWheelMove (e, wheel)))
         Component::mouseWheelMove (e, wheel);
 }
+
+//==============================================================================
+class SliderAccessibilityHandler  : public AccessibilityHandler
+{
+public:
+    explicit SliderAccessibilityHandler (Slider& sliderToWrap)
+        : AccessibilityHandler (sliderToWrap,
+                                AccessibilityRole::slider,
+                                AccessibilityActions{},
+                                AccessibilityHandler::Interfaces { std::make_unique<ValueInterface> (sliderToWrap) }),
+          slider (sliderToWrap)
+    {
+    }
+
+    String getHelp() const override   { return slider.getTooltip(); }
+
+private:
+    class ValueInterface  : public AccessibilityValueInterface
+    {
+    public:
+        explicit ValueInterface (Slider& sliderToWrap)
+            : slider (sliderToWrap),
+              valueToControl (slider.isTwoValue() ? slider.getMaxValueObject() : slider.getValueObject())
+        {
+        }
+
+        bool isReadOnly() const override                         { return false; }
+
+        double getCurrentValue() const override                  { return valueToControl.getValue(); }
+        void setValue (double newValue) override                 { valueToControl = newValue; }
+
+        String getCurrentValueAsString() const override          { return slider.getTextFromValue (getCurrentValue()); }
+        void setValueAsString (const String& newValue) override  { setValue (slider.getValueFromText (newValue)); }
+
+        AccessibleValueRange getRange() const override
+        {
+            return { { slider.getMinimum(), slider.getMaximum() },
+                     getStepSize() };
+        }
+
+    private:
+        double getStepSize() const
+        {
+            auto interval = slider.getInterval();
+
+            return interval != 0.0 ? interval
+                                   : slider.getRange().getLength() * 0.01;
+        }
+
+        Slider& slider;
+        Value valueToControl;
+
+        //==============================================================================
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ValueInterface)
+    };
+
+    Slider& slider;
+
+    //==============================================================================
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SliderAccessibilityHandler)
+};
 
 std::unique_ptr<AccessibilityHandler> Slider::createAccessibilityHandler()
 {

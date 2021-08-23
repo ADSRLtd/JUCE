@@ -35,11 +35,12 @@
 
   ID:                 juce_gui_basics
   vendor:             juce
-  version:            6.0.8
+  version:            6.1.0
   name:               JUCE GUI core classes
   description:        Basic user-interface components and related classes.
   website:            http://www.juce.com/juce
   license:            GPL/Commercial
+  minimumCppStandard: 14
 
   dependencies:       juce_graphics juce_data_structures
   OSXFrameworks:      Cocoa Carbon QuartzCore
@@ -257,6 +258,7 @@ namespace juce
 #include "misc/juce_JUCESplashScreen.h"
 #include "widgets/juce_TreeView.h"
 #include "windows/juce_TopLevelWindow.h"
+#include "windows/juce_MessageBoxOptions.h"
 #include "windows/juce_AlertWindow.h"
 #include "windows/juce_CallOutBox.h"
 #include "windows/juce_ComponentPeer.h"
@@ -306,13 +308,6 @@ namespace juce
 #include "accessibility/enums/juce_AccessibilityRole.h"
 #include "accessibility/juce_AccessibilityState.h"
 #include "accessibility/juce_AccessibilityHandler.h"
-#include "accessibility/widget_handlers/juce_ButtonAccessibilityHandler.h"
-#include "accessibility/widget_handlers/juce_ComboBoxAccessibilityHandler.h"
-#include "accessibility/widget_handlers/juce_LabelAccessibilityHandler.h"
-#include "accessibility/widget_handlers/juce_SliderAccessibilityHandler.h"
-#include "accessibility/widget_handlers/juce_TableListBoxAccessibilityHandler.h"
-#include "accessibility/widget_handlers/juce_TextEditorAccessibilityHandler.h"
-#include "accessibility/widget_handlers/juce_TreeViewAccessibilityHandler.h"
 
 #if JUCE_LINUX || JUCE_BSD
  #if JUCE_GUI_BASICS_INCLUDE_XHEADERS

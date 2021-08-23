@@ -700,7 +700,7 @@ public:
         z-order will be left unchanged.
 
         @param child    the new component to add. If the component passed-in is already
-                        the child of another component, it'll first be removed from it current parent.
+                        the child of another component, it'll first be removed from its current parent.
         @param zOrder   The index in the child-list at which this component should be inserted.
                         A value of -1 will insert it in front of the others, 0 is the back.
         @see removeChildComponent, addAndMakeVisible, addChildAndSetID, getChild, ComponentListener::componentChildrenChanged
@@ -718,7 +718,7 @@ public:
         z-order will be left unchanged.
 
         @param child    the new component to add. If the component passed-in is already
-                        the child of another component, it'll first be removed from it current parent.
+                        the child of another component, it'll first be removed from its current parent.
         @param zOrder   The index in the child-list at which this component should be inserted.
                         A value of -1 will insert it in front of the others, 0 is the back.
         @see removeChildComponent, addAndMakeVisible, addChildAndSetID, getChild, ComponentListener::componentChildrenChanged
@@ -731,7 +731,7 @@ public:
         See addChildComponent() for more details.
 
         @param child    the new component to add. If the component passed-in is already
-                        the child of another component, it'll first be removed from it current parent.
+                        the child of another component, it'll first be removed from its current parent.
         @param zOrder   The index in the child-list at which this component should be inserted.
                         A value of -1 will insert it in front of the others, 0 is the back.
     */
@@ -743,7 +743,7 @@ public:
         See addChildComponent() for more details.
 
         @param child    the new component to add. If the component passed-in is already
-                        the child of another component, it'll first be removed from it current parent.
+                        the child of another component, it'll first be removed from its current parent.
         @param zOrder   The index in the child-list at which this component should be inserted.
                         A value of -1 will insert it in front of the others, 0 is the back.
     */
@@ -2020,7 +2020,7 @@ public:
     virtual void handleCommandMessage (int commandId);
 
     //==============================================================================
-   #if JUCE_MODAL_LOOPS_PERMITTED || DOXYGEN
+   #if JUCE_MODAL_LOOPS_PERMITTED
     /** Runs a component modally, waiting until the loop terminates.
 
         This method first makes the component visible, brings it to the front and
@@ -2518,6 +2518,7 @@ private:
         bool isResizeCallbackPending      : 1;
         bool viewportIgnoreDragFlag       : 1;
         bool accessibilityIgnoredFlag     : 1;
+        bool cachedMouseInsideComponent   : 1;
        #if JUCE_DEBUG
         bool isInsidePaintCall            : 1;
        #endif
@@ -2564,6 +2565,10 @@ private:
     void giveAwayKeyboardFocusInternal (bool sendFocusLossEvent);
     void sendEnablementChangeMessage();
     void sendVisibilityChangeMessage();
+
+    bool containsInternal (Point<float>);
+    bool reallyContainsInternal (Point<float>, bool);
+    Component* getComponentAtInternal (Point<float>);
 
     struct ComponentHelpers;
     friend struct ComponentHelpers;

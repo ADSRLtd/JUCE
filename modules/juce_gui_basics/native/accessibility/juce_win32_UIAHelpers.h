@@ -58,7 +58,7 @@ namespace VariantHelpers
     }
 }
 
-JUCE_COMRESULT addHandlersToArray (const std::vector<const AccessibilityHandler*>& handlers, SAFEARRAY** pRetVal)
+inline JUCE_COMRESULT addHandlersToArray (const std::vector<const AccessibilityHandler*>& handlers, SAFEARRAY** pRetVal)
 {
     auto numHandlers = handlers.size();
 
@@ -68,13 +68,15 @@ JUCE_COMRESULT addHandlersToArray (const std::vector<const AccessibilityHandler*
     {
         for (LONG i = 0; i < (LONG) numHandlers; ++i)
         {
-            auto* handler = handlers[i];
+            auto* handler = handlers[(size_t) i];
 
             if (handler == nullptr)
                 continue;
 
             ComSmartPtr<IRawElementProviderSimple> provider;
+            JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wlanguage-extension-token")
             handler->getNativeImplementation()->QueryInterface (IID_PPV_ARGS (provider.resetAndGetPointerAddress()));
+            JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 
             auto hr = SafeArrayPutElement (*pRetVal, &i, provider);
 
@@ -87,7 +89,7 @@ JUCE_COMRESULT addHandlersToArray (const std::vector<const AccessibilityHandler*
 }
 
 template <typename Value, typename Object, typename Callback>
-JUCE_COMRESULT withCheckedComArgs (Value* pRetVal, Object& handle, Callback&& callback)
+inline JUCE_COMRESULT withCheckedComArgs (Value* pRetVal, Object& handle, Callback&& callback)
 {
     if (pRetVal == nullptr)
         return E_INVALIDARG;
@@ -95,7 +97,7 @@ JUCE_COMRESULT withCheckedComArgs (Value* pRetVal, Object& handle, Callback&& ca
     *pRetVal = Value{};
 
     if (! handle.isElementValid())
-        return UIA_E_ELEMENTNOTAVAILABLE;
+        return (HRESULT) UIA_E_ELEMENTNOTAVAILABLE;
 
     return callback();
 }

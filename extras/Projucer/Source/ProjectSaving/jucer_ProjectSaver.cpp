@@ -42,17 +42,32 @@ ProjectSaver::ProjectSaver (Project& p)
     generatedFilesGroup.setID (generatedGroupID);
 }
 
-Result ProjectSaver::save (ProjectExporter* exporterToSave)
+void ProjectSaver::save (Async async, ProjectExporter* exporterToSave, std::function<void (Result)> onCompletion)
 {
-    if (! ProjucerApplication::getApp().isRunningCommandLine)
+    if (async == Async::yes)
+        saveProjectAsync (exporterToSave, std::move (onCompletion));
+    else
+        onCompletion (saveProject (exporterToSave));
+}
+
+void ProjectSaver::saveProjectAsync (ProjectExporter* exporterToSave, std::function<void (Result)> onCompletion)
+{
+    jassert (saveThread == nullptr);
+
+    saveThread = std::make_unique<SaveThreadWithProgressWindow> (*this, exporterToSave,
+                                                                 [ref = WeakReference<ProjectSaver> { this }, onCompletion] (Result result)
     {
-        SaveThreadWithProgressWindow thread (*this, exporterToSave);
-        thread.runThread();
+        if (ref == nullptr)
+            return;
 
-        return thread.result;
-    }
+        // Clean up old save thread in case onCompletion wants to start a new save thread
+        ref->saveThread->waitForThreadToExit (-1);
+        ref->saveThread = nullptr;
 
-    return saveProject (exporterToSave);
+        if (onCompletion != nullptr)
+            onCompletion (result);
+    });
+    saveThread->launchThread();
 }
 
 Result ProjectSaver::saveResourcesOnly()

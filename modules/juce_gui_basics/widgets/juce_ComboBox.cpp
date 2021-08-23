@@ -482,14 +482,11 @@ void ComboBox::showPopupIfNotActive()
     {
         menuActive = true;
 
-        SafePointer<ComboBox> safePointer (this);
-
         // as this method was triggered by a mouse event, the same mouse event may have
         // exited the modal state of other popups currently on the screen. By calling
         // showPopup asynchronously, we are giving the other popups a chance to properly
         // close themselves
-        MessageManager::callAsync ([safePointer]() mutable { if (safePointer != nullptr) safePointer->showPopup(); });
-
+        MessageManager::callAsync ([safePointer = SafePointer<ComboBox> { this }]() mutable { if (safePointer != nullptr) safePointer->showPopup(); });
         repaint();
     }
 }
@@ -643,6 +640,40 @@ void ComboBox::setSelectedId (const int newItemId, const bool dontSendChange)   
 void ComboBox::setText (const String& newText, const bool dontSendChange)        { setText (newText, dontSendChange ? dontSendNotification : sendNotification); }
 
 //==============================================================================
+class ComboBoxAccessibilityHandler  : public AccessibilityHandler
+{
+public:
+    explicit ComboBoxAccessibilityHandler (ComboBox& comboBoxToWrap)
+        : AccessibilityHandler (comboBoxToWrap,
+                                AccessibilityRole::comboBox,
+                                getAccessibilityActions (comboBoxToWrap)),
+          comboBox (comboBoxToWrap)
+    {
+    }
+
+    AccessibleState getCurrentState() const override
+    {
+        auto state = AccessibilityHandler::getCurrentState().withExpandable();
+
+        return comboBox.isPopupActive() ? state.withExpanded() : state.withCollapsed();
+    }
+
+    String getTitle() const override  { return comboBox.getText(); }
+    String getHelp() const override   { return comboBox.getTooltip(); }
+
+private:
+    static AccessibilityActions getAccessibilityActions (ComboBox& comboBox)
+    {
+        return AccessibilityActions().addAction (AccessibilityActionType::press,    [&comboBox] { comboBox.showPopup(); })
+                                     .addAction (AccessibilityActionType::showMenu, [&comboBox] { comboBox.showPopup(); });
+    }
+
+    ComboBox& comboBox;
+
+    //==============================================================================
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ComboBoxAccessibilityHandler)
+};
+
 std::unique_ptr<AccessibilityHandler> ComboBox::createAccessibilityHandler()
 {
     return std::make_unique<ComboBoxAccessibilityHandler> (*this);

@@ -82,6 +82,8 @@ public:
 
     void createBrowser() override
     {
+        JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wlanguage-extension-token")
+
         auto webCLSID = __uuidof (WebBrowser);
         createControl (&webCLSID);
 
@@ -96,14 +98,16 @@ public:
 
             if (connectionPoint != nullptr)
             {
-                auto* owner = dynamic_cast<WebBrowserComponent*> (Component::getParentComponent());
-                jassert (owner != nullptr);
-
-                auto handler = new EventHandler (*owner);
-                connectionPoint->Advise (handler, &adviseCookie);
-                handler->Release();
+                if (auto* owner = dynamic_cast<WebBrowserComponent*> (Component::getParentComponent()))
+                {
+                    auto handler = new EventHandler (*owner);
+                    connectionPoint->Advise (handler, &adviseCookie);
+                    handler->Release();
+                }
             }
         }
+
+        JUCE_END_IGNORE_WARNINGS_GCC_LIKE
     }
 
     bool hasBrowserBeenCreated() override
@@ -194,6 +198,8 @@ public:
 
     void focusGained() override
     {
+        JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wlanguage-extension-token")
+
         auto iidOleObject = __uuidof (IOleObject);
         auto iidOleWindow = __uuidof (IOleWindow);
 
@@ -216,6 +222,8 @@ public:
 
             oleObject->Release();
         }
+
+        JUCE_END_IGNORE_WARNINGS_GCC_LIKE
     }
 
     using ActiveXControlComponent::focusGained;
@@ -623,15 +631,14 @@ private:
 
         auto options = Microsoft::WRL::Make<CoreWebView2EnvironmentOptions>();
 
-        WeakReference<WebView2> weakThis (this);
         auto hr = createWebViewEnvironmentWithOptions (nullptr,
                                                        userDataFolder != File() ? userDataFolder.getFullPathName().toWideCharPointer() : nullptr,
                                                        options.Get(),
             Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-                [this, weakThis] (HRESULT, ICoreWebView2Environment* env) -> HRESULT
+                [weakThis = WeakReference<WebView2> { this }] (HRESULT, ICoreWebView2Environment* env) -> HRESULT
                 {
                     if (weakThis != nullptr)
-                        webViewEnvironment = env;
+                        weakThis->webViewEnvironment = env;
 
                     return S_OK;
                 }).Get());
@@ -649,22 +656,22 @@ private:
 
             webViewEnvironment->CreateCoreWebView2Controller ((HWND) peer->getNativeHandle(),
                 Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler> (
-                    [this, weakThis] (HRESULT, ICoreWebView2Controller* controller) -> HRESULT
+                    [weakThis = WeakReference<WebView2> { this }] (HRESULT, ICoreWebView2Controller* controller) -> HRESULT
                     {
                         if (weakThis != nullptr)
                         {
-                            isCreating = false;
+                            weakThis->isCreating = false;
 
                             if (controller != nullptr)
                             {
-                                webViewController = controller;
-                                controller->get_CoreWebView2 (webView.resetAndGetPointerAddress());
+                                weakThis->webViewController = controller;
+                                controller->get_CoreWebView2 (weakThis->webView.resetAndGetPointerAddress());
 
-                                addEventHandlers();
-                                componentMovedOrResized (true, true);
+                                weakThis->addEventHandlers();
+                                weakThis->componentMovedOrResized (true, true);
 
-                                if (webView != nullptr && urlRequest.url.isNotEmpty())
-                                    webView->Navigate (urlRequest.url.toWideCharPointer());
+                                if (weakThis->webView != nullptr && weakThis->urlRequest.url.isNotEmpty())
+                                    weakThis->webView->Navigate (weakThis->urlRequest.url.toWideCharPointer());
                             }
                         }
 

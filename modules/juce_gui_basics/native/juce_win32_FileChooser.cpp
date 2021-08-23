@@ -215,8 +215,13 @@ private:
             return ptr;
         }();
 
-        if (item == nullptr || FAILED (dialog.SetDefaultFolder (item)))
-            return false;
+        if (item != nullptr)
+        {
+            dialog.SetDefaultFolder (item);
+
+            if (! initialPath.isEmpty())
+                dialog.SetFolder (item);
+        }
 
         String filename (files.getData());
 
@@ -431,6 +436,13 @@ private:
            #else
             of.lStructSize = sizeof (of);
            #endif
+
+            if (files[0] != 0)
+            {
+                auto startingFile = File (initialPath).getChildFile (String (files.get()));
+                startingFile.getFullPathName().copyToUTF16 (files, charsAvailableForResult * sizeof (WCHAR));
+            }
+
             of.hwndOwner = (HWND) (async ? nullptr : owner->getWindowHandle());
             of.lpstrFilter = filters.getData();
             of.nFilterIndex = 1;
@@ -507,7 +519,7 @@ private:
             struct ScopedCoInitialize
             {
                 // IUnknown_GetWindow will only succeed when instantiated in a single-thread apartment
-                ScopedCoInitialize() { CoInitializeEx (nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE); }
+                ScopedCoInitialize() { ignoreUnused (CoInitializeEx (nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE)); }
                 ~ScopedCoInitialize() { CoUninitialize(); }
             };
 
@@ -680,12 +692,11 @@ private:
                 }
                 else
                 {
-                    Component::SafePointer<FilePreviewComponent> safeComp (comp);
-
-                    File selectedFile (path);
-                    MessageManager::callAsync ([safeComp, selectedFile]() mutable
+                    MessageManager::callAsync ([safeComp = Component::SafePointer<FilePreviewComponent> { comp },
+                                                selectedFile = File { path }]() mutable
                                                {
-                                                    safeComp->selectedFileChanged (selectedFile);
+                                                    if (safeComp != nullptr)
+                                                        safeComp->selectedFileChanged (selectedFile);
                                                });
                 }
             }

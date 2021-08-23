@@ -233,13 +233,18 @@ private:
                                                  .addAction (AccessibilityActionType::toggle, std::move (onToggle));
 
             if (hasActiveSubMenu (item.item))
-                actions.addAction (AccessibilityActionType::showMenu, [&item]
-                                   {
-                                       item.parentWindow.showSubMenuFor (&item);
+            {
+                auto showSubMenu = [&item]
+                {
+                    item.parentWindow.showSubMenuFor (&item);
 
-                                       if (auto* subMenu = item.parentWindow.activeSubMenu.get())
-                                           subMenu->setCurrentlyHighlightedChild (subMenu->items.getFirst());
-                                   });
+                    if (auto* subMenu = item.parentWindow.activeSubMenu.get())
+                        subMenu->setCurrentlyHighlightedChild (subMenu->items.getFirst());
+                };
+
+                actions.addAction (AccessibilityActionType::press,    showSubMenu);
+                actions.addAction (AccessibilityActionType::showMenu, showSubMenu);
+            }
 
             return actions;
         }
@@ -519,6 +524,24 @@ struct MenuWindow  : public Component
 
     float getDesktopScaleFactor() const override    { return scaleFactor * Desktop::getInstance().getGlobalScaleFactor(); }
 
+    void visibilityChanged() override
+    {
+        if (! isShowing())
+            return;
+
+        auto* accessibleFocus = [this]
+        {
+          if (currentChild != nullptr)
+              if (auto* childHandler = currentChild->getAccessibilityHandler())
+                  return childHandler;
+
+            return getAccessibilityHandler();
+        }();
+
+        if (accessibleFocus != nullptr)
+            accessibleFocus->grabFocus();
+    }
+
     //==============================================================================
     bool keyPressed (const KeyPress& key) override
     {
@@ -723,7 +746,7 @@ struct MenuWindow  : public Component
 
     bool doesAnyJuceCompHaveFocus()
     {
-        if (! Process::isForegroundProcess())
+        if (! isForegroundOrEmbeddedProcess (componentAttachedTo))
             return false;
 
         if (Component::getCurrentlyFocusedComponent() != nullptr)
@@ -831,8 +854,9 @@ struct MenuWindow  : public Component
             if (getLookAndFeel().getPopupMenuBorderSizeWithOptions (options) == 0) // workaround for dismissing the window on mouse up when border size is 0
                 x += tendTowardsRight ? 1 : -1;
 
-            y = target.getCentreY() > parentArea.getCentreY() ? jmax (parentArea.getY(), target.getBottom() - heightToUse)
-                                                              : target.getY();
+            const auto border = getLookAndFeel().getPopupMenuBorderSizeWithOptions (options);
+            y = target.getCentreY() > parentArea.getCentreY() ? jmax (parentArea.getY(), target.getBottom() - heightToUse) + border
+                                                              : target.getY() - border;
         }
 
         x = jmax (parentArea.getX() + 1, jmin (parentArea.getRight()  - (widthToUse  + 6), x));
@@ -859,12 +883,11 @@ struct MenuWindow  : public Component
             insertColumnBreaks (maxMenuW, maxMenuH);
 
         workOutManualSize (maxMenuW);
-        auto actualH = jmin (contentHeight, maxMenuH);
+        height = jmin (contentHeight, maxMenuH);
 
-        needsToScroll = contentHeight > actualH;
+        needsToScroll = contentHeight > height;
 
         width = updateYPositions();
-        height = actualH + getLookAndFeel().getPopupMenuBorderSizeWithOptions (options) * 2;
     }
 
     void insertColumnBreaks (const int maxMenuW, const int maxMenuH)
@@ -948,6 +971,8 @@ struct MenuWindow  : public Component
             columnWidths.add (adjustedColW);
             it = columnEnd;
         }
+
+        contentHeight += getLookAndFeel().getPopupMenuBorderSizeWithOptions (options) * 2;
 
         correctColumnWidths (maxMenuW);
     }
@@ -1100,9 +1125,6 @@ struct MenuWindow  : public Component
 
     void setCurrentlyHighlightedChild (ItemComponent* child)
     {
-        if (currentChild == child)
-            return;
-
         if (currentChild != nullptr)
             currentChild->setHighlighted (false);
 
@@ -1217,8 +1239,14 @@ struct MenuWindow  : public Component
                                                        AccessibilityActions().addAction (AccessibilityActionType::focus, [this]
                                                        {
                                                            if (currentChild != nullptr)
+                                                           {
                                                                if (auto* handler = currentChild->getAccessibilityHandler())
                                                                    handler->grabFocus();
+                                                           }
+                                                           else
+                                                           {
+                                                               selectNextItem (MenuSelectionDirection::forwards);
+                                                           }
                                                        }));
     }
 
@@ -2027,9 +2055,6 @@ int PopupMenu::showWithOptionalCallback (const Options& options,
 
         window->toFront (false);  // need to do this after making it modal, or it could
                                   // be stuck behind other comps that are already modal..
-
-        if (auto* handler = window->getAccessibilityHandler())
-            handler->grabFocus();
 
        #if JUCE_MODAL_LOOPS_PERMITTED
         if (userCallback == nullptr && canBeModal)

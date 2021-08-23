@@ -66,6 +66,7 @@
  #include <windowsx.h>
  #include <vfw.h>
  #include <commdlg.h>
+ #include <commctrl.h>
 
  #if ! JUCE_MINGW
   #include <UIAutomation.h>
@@ -82,6 +83,7 @@
  #elif ! JUCE_DONT_AUTOLINK_TO_WIN32_LIBRARIES
   #pragma comment(lib, "vfw32.lib")
   #pragma comment(lib, "imm32.lib")
+  #pragma comment(lib, "comctl32.lib")
 
   #if JUCE_OPENGL
    #pragma comment(lib, "OpenGL32.Lib")
@@ -105,7 +107,21 @@
 
 namespace juce
 {
-    extern bool juce_areThereAnyAlwaysOnTopWindows();
+    bool juce_areThereAnyAlwaysOnTopWindows();
+
+    bool isEmbeddedInForegroundProcess (Component* c);
+
+   #if ! JUCE_WINDOWS
+    bool isEmbeddedInForegroundProcess (Component*) { return false; }
+   #endif
+
+    /*  Returns true if this process is in the foreground, or if the viewComponent
+        is embedded into a window owned by the foreground process.
+    */
+    static bool isForegroundOrEmbeddedProcess (Component* viewComponent)
+    {
+        return Process::isForegroundProcess() || isEmbeddedInForegroundProcess (viewComponent);
+    }
 }
 
 #include "accessibility/juce_AccessibilityHandler.cpp"
@@ -236,8 +252,38 @@ namespace juce
  #include "native/juce_MultiTouchMapper.h"
 #endif
 
+#if JUCE_ANDROID || JUCE_WINDOWS
+ #include "native/accessibility/juce_AccessibilityTextHelpers.h"
+#endif
+
+namespace juce
+{
+
+static const juce::Identifier disableAsyncLayerBackedViewIdentifier { "disableAsyncLayerBackedView" };
+
+JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wmissing-prototypes")
+
+/** Used by the macOS and iOS peers. */
+void setComponentAsyncLayerBackedViewDisabled (juce::Component& comp, bool shouldDisableAsyncLayerBackedView)
+{
+    comp.getProperties().set (disableAsyncLayerBackedViewIdentifier, shouldDisableAsyncLayerBackedView);
+}
+
+/** Used by the macOS and iOS peers. */
+bool getComponentAsyncLayerBackedViewDisabled (juce::Component& comp)
+{
+    return comp.getProperties()[disableAsyncLayerBackedViewIdentifier];
+}
+
+JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+
+} // namespace juce
+
 #if JUCE_MAC || JUCE_IOS
+ #include "native/accessibility/juce_mac_AccessibilitySharedCode.mm"
+
  #if JUCE_IOS
+  #include "native/accessibility/juce_ios_Accessibility.mm"
   #include "native/juce_ios_UIViewComponentPeer.mm"
   #include "native/juce_ios_Windowing.mm"
   #include "native/juce_ios_FileChooser.mm"
@@ -295,6 +341,7 @@ namespace juce
  #include "native/juce_linux_FileChooser.cpp"
 
 #elif JUCE_ANDROID
+ #include "native/accessibility/juce_android_Accessibility.cpp"
  #include "native/juce_android_Windowing.cpp"
  #include "native/juce_common_MimeTypes.cpp"
  #include "native/juce_android_FileChooser.cpp"
@@ -304,3 +351,23 @@ namespace juce
  #endif
 
 #endif
+
+namespace juce
+{
+   #if ! JUCE_NATIVE_ACCESSIBILITY_INCLUDED
+    class AccessibilityHandler::AccessibilityNativeImpl { public: AccessibilityNativeImpl (AccessibilityHandler&) {} };
+    void AccessibilityHandler::notifyAccessibilityEvent (AccessibilityEvent) const {}
+    void AccessibilityHandler::postAnnouncement (const String&, AnnouncementPriority) {}
+    AccessibilityNativeHandle* AccessibilityHandler::getNativeImplementation() const { return nullptr; }
+    void notifyAccessibilityEventInternal (const AccessibilityHandler&, InternalAccessibilityEvent) {}
+    std::unique_ptr<AccessibilityHandler::AccessibilityNativeImpl> AccessibilityHandler::createNativeImpl (AccessibilityHandler&)
+    {
+        return nullptr;
+    }
+   #else
+    std::unique_ptr<AccessibilityHandler::AccessibilityNativeImpl> AccessibilityHandler::createNativeImpl (AccessibilityHandler& handler)
+    {
+        return std::make_unique<AccessibilityNativeImpl> (handler);
+    }
+   #endif
+}
