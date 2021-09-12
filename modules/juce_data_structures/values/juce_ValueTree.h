@@ -543,6 +543,10 @@ public:
             will be made.
         */
         virtual void valueTreeRedirected (ValueTree& treeWhichHasBeenChanged);
+
+        /** This method is called when a tree has been re-structured
+		*/
+        virtual void valueTreeStructureChanged(ValueTree& treeWhichHasBeenChanged);
     };
 
     /** Adds a listener to receive callbacks when this tree is changed in some way.
@@ -576,6 +580,17 @@ public:
     */
     void sendPropertyChangeMessage (const Identifier& property);
 
+    /** Disables all listener notifications
+     */
+    void disableNotifications();
+	/** Enables all listener notifications
+	 */
+    void enableNotifications();
+
+	/* Notify listeners that the structure of the tree has changed
+	 */
+    void sendStructureChangeMessage();
+	
     //==============================================================================
     /** This method uses a comparator object to sort the tree's children into order.
 

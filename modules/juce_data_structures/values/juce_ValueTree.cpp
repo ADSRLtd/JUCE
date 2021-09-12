@@ -90,8 +90,11 @@ public:
     template <typename Function>
     void callListenersForAllParents (ValueTree::Listener* listenerToExclude, Function fn) const
     {
-        for (auto* t = this; t != nullptr; t = t->parent)
-            t->callListeners (listenerToExclude, fn);
+    	if(notifyListeners.load())
+    	{
+            for (auto* t = this; t != nullptr; t = t->parent)
+                t->callListeners(listenerToExclude, fn);
+    	}
     }
 
     void sendPropertyChangeMessage (const Identifier& property, ValueTree::Listener* listenerToExclude = nullptr)
@@ -118,6 +121,12 @@ public:
         callListenersForAllParents (nullptr, [=, &tree] (Listener& l) { l.valueTreeChildOrderChanged (tree, oldIndex, newIndex); });
     }
 
+    void sendStructureChangeMessage()
+    {
+        ValueTree tree(*this);
+        callListenersForAllParents(nullptr, [&](Listener& l) { l.valueTreeStructureChanged(tree); });
+    }
+	
     void sendParentChangeMessage()
     {
         ValueTree tree (*this);
@@ -628,6 +637,10 @@ public:
     SortedSet<ValueTree*> valueTreesWithListeners;
     SharedObject* parent = nullptr;
 
+	// Added 10/09/2021
+	// If false, no change notifications are sent.
+	std::atomic_bool notifyListeners = true;
+	
     JUCE_LEAK_DETECTOR (SharedObject)
 };
 
@@ -1044,6 +1057,24 @@ void ValueTree::sendPropertyChangeMessage (const Identifier& property)
         object->sendPropertyChangeMessage (property);
 }
 
+void ValueTree::disableNotifications()
+{
+    if (object != nullptr)
+        object->notifyListeners.store(false);
+}
+
+void ValueTree::enableNotifications()
+{
+    if (object != nullptr)
+        object->notifyListeners.store(true);
+}
+
+void ValueTree::sendStructureChangeMessage()
+{
+    if (object != nullptr)
+        object->sendStructureChangeMessage();
+}
+
 //==============================================================================
 std::unique_ptr<XmlElement> ValueTree::createXml() const
 {
@@ -1152,8 +1183,8 @@ void ValueTree::Listener::valueTreeChildAdded        (ValueTree&, ValueTree&)   
 void ValueTree::Listener::valueTreeChildRemoved      (ValueTree&, ValueTree&, int)   {}
 void ValueTree::Listener::valueTreeChildOrderChanged (ValueTree&, int, int)          {}
 void ValueTree::Listener::valueTreeParentChanged     (ValueTree&)                    {}
-void ValueTree::Listener::valueTreeRedirected        (ValueTree&)                    {}
-
+void ValueTree::Listener::valueTreeRedirected(ValueTree&) {}
+void ValueTree::Listener::valueTreeStructureChanged  (ValueTree&)                    {}
 
 //==============================================================================
 //==============================================================================
