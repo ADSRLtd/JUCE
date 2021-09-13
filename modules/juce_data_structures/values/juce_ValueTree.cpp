@@ -639,7 +639,7 @@ public:
 
 	// Added 10/09/2021
 	// If false, no change notifications are sent.
-	std::atomic_bool notifyListeners = true;
+	std::atomic_bool notifyListeners {true};
 	
     JUCE_LEAK_DETECTOR (SharedObject)
 };
