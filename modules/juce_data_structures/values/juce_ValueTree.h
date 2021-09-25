@@ -79,6 +79,7 @@ public:
         virtual var getCurrentValue() = 0;
         virtual juce::Identifier getTreeType() = 0;
         virtual ValueTree getTree() = 0;
+        virtual juce::StringArray getPropertyPath() = 0;
 	};
 	
     //==============================================================================

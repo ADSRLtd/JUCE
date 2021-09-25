@@ -456,6 +456,18 @@ public:
         {
         }
 
+    	juce::StringArray getPropertyPath() override
+        {
+            juce::StringArray path;
+            ValueTree vt = ValueTree(target);
+        	while(vt.getParent().isValid())
+        	{
+                path.add(vt.getType().toString());
+                vt = vt.getParent();
+        	}
+            return path;
+        }
+    	
     	bool isSameTargetAndProperty(const Ptr& otherTarget, const Identifier& otherName) const
         {
             return target == otherTarget && name == otherName;
