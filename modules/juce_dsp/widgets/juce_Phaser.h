@@ -92,7 +92,7 @@ public:
         jassert (inputBlock.getNumChannels() == lastOutput.size());
         jassert (inputBlock.getNumSamples()  == numSamples);
 
-        if (context.isBypassed)
+        if (context.isBypassed || mix == 0)
         {
             outputBlock.copyFrom (inputBlock);
             return;
