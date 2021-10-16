@@ -81,6 +81,8 @@ public:
                        bool includeDirectories,
                        bool includeFiles);
 
+    void listVolumes();
+	
     /** Returns true if this list contains directories.
         @see setDirectory
     */
