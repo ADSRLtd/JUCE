@@ -75,9 +75,16 @@ public:
         (and if the file isn't in the list, all other items will be deselected). */
     void setSelectedFile (const File&) override;
 
+	/**
+	 * Changing the content directory through this FileListComponent instead of using the
+	 * DirectoryContentsList directly allows us to make sure that item selections are consistent
+	 * regardless of the order of changing content directory and calling setSelectedFile
+	 */
+    void setContentDirectory(const File&, bool includeDirectories, bool includeFiles);
+
 private:
     //==============================================================================
-    File lastDirectory, fileWaitingToBeSelected;
+    File lastDirectory, fileWaitingToBeSelected, currentSelectedFile;
     class ItemComponent;
 
     void changeListenerCallback (ChangeBroadcaster*) override;

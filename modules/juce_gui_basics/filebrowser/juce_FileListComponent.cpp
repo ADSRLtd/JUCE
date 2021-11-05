@@ -67,35 +67,64 @@ void FileListComponent::scrollToTop()
 
 void FileListComponent::setSelectedFile (const File& f)
 {
+    DBG(getTitle() + "::FLC::setSelectedFile " + f.getFullPathName() + " : " + directoryContentsList.getDirectory().getFullPathName());
     for (int i = directoryContentsList.getNumFiles(); --i >= 0;)
     {
         if (directoryContentsList.getFile (i) == f)
         {
-            fileWaitingToBeSelected = File();
+            DBG(getTitle() + "::FLC:: selecting " + f.getFullPathName() + " at index " + juce::String(i) + ".Clear waiting. ###");
+			fileWaitingToBeSelected = File();
 
             selectRow (i);
+            currentSelectedFile = getSelectedFile();
             return;
         }
     }
+
+    DBG(getTitle() + "::FLC::setSelectedFile. Waiting to select " + f.getFullPathName());
 
     deselectAllRows();
     fileWaitingToBeSelected = f;
 }
 
+void FileListComponent::setContentDirectory(const File& f, bool includeDirectories, bool includeFiles)
+{
+    DBG(getTitle() + "::FLC::setContentDirectory " + f.getFullPathName());
+    currentSelectedFile = getSelectedFile();
+    lastDirectory = directoryContentsList.getDirectory();
+    directoryContentsList.setDirectory(f, includeDirectories, includeFiles);
+}
 //==============================================================================
 void FileListComponent::changeListenerCallback (ChangeBroadcaster*)
 {
+    DBG(getTitle() + "::FLC:: change listener callback");
+	
     updateContent();
+
+	// Added check to see if the file waiting to be selected is a child of the current directory.
 
     if (lastDirectory != directoryContentsList.getDirectory())
     {
-        fileWaitingToBeSelected = File();
+        DBG(getTitle() + "::FLC: last dir is not DCL dir. Last " + lastDirectory.getFullPathName() + ". DCL : " + directoryContentsList.getDirectory().getFullPathName());
         lastDirectory = directoryContentsList.getDirectory();
-        deselectAllRows();
     }
 
-    if (fileWaitingToBeSelected != File())
-        setSelectedFile (fileWaitingToBeSelected);
+	if (fileWaitingToBeSelected.isAChildOf(directoryContentsList.getDirectory())) 
+    {
+        DBG(getTitle() + "::FLC:: Waiting file is a child of DCL dir " + fileWaitingToBeSelected.getFullPathName());
+        setSelectedFile(fileWaitingToBeSelected);
+    }
+    else if(currentSelectedFile.isAChildOf(directoryContentsList.getDirectory()))
+    {
+        DBG(getTitle() + "::FLC:: Current selected file is a child of DCL dir " + fileWaitingToBeSelected.getFullPathName());
+        setSelectedFile(currentSelectedFile);
+    }
+	else 
+    {
+        DBG(getTitle() + "::FLC:: DCL loaded. Clear waiting.");
+        fileWaitingToBeSelected = File();
+        deselectAllRows();
+    }
 }
 
 //==============================================================================
