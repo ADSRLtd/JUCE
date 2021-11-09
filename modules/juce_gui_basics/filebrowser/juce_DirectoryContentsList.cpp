@@ -78,7 +78,7 @@ void DirectoryContentsList::setDirectory (const File& directory,
 void DirectoryContentsList::listVolumes()
 {
 	#if JUCE_MAC
-		setDirectory("/Volumes", true, false);
+		setDirectory(juce::File {"/Volumes"}, true, false);
 	#else
 	    clear();
 	    juce::Array<juce::File> roots;
