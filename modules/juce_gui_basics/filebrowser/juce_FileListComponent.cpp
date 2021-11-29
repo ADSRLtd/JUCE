@@ -67,12 +67,12 @@ void FileListComponent::scrollToTop()
 
 void FileListComponent::setSelectedFile (const File& f)
 {
-    DBG(getTitle() + "::FLC::setSelectedFile " + f.getFullPathName() + " : " + directoryContentsList.getDirectory().getFullPathName());
+    //DBG(getTitle() + "::FLC::setSelectedFile " + f.getFullPathName() + " : " + directoryContentsList.getDirectory().getFullPathName());
     for (int i = directoryContentsList.getNumFiles(); --i >= 0;)
     {
         if (directoryContentsList.getFile (i) == f)
         {
-            DBG(getTitle() + "::FLC:: selecting " + f.getFullPathName() + " at index " + juce::String(i) + ".Clear waiting. ###");
+            //DBG(getTitle() + "::FLC:: selecting " + f.getFullPathName() + " at index " + juce::String(i) + ".Clear waiting. ###");
 			fileWaitingToBeSelected = File();
 
             selectRow (i);
@@ -81,7 +81,7 @@ void FileListComponent::setSelectedFile (const File& f)
         }
     }
 
-    DBG(getTitle() + "::FLC::setSelectedFile. Waiting to select " + f.getFullPathName());
+    //DBG(getTitle() + "::FLC::setSelectedFile. Waiting to select " + f.getFullPathName());
 
     deselectAllRows();
     fileWaitingToBeSelected = f;
@@ -89,7 +89,7 @@ void FileListComponent::setSelectedFile (const File& f)
 
 void FileListComponent::setContentDirectory(const File& f, bool includeDirectories, bool includeFiles)
 {
-    DBG(getTitle() + "::FLC::setContentDirectory " + f.getFullPathName());
+    //DBG(getTitle() + "::FLC::setContentDirectory " + f.getFullPathName());
     currentSelectedFile = getSelectedFile();
     lastDirectory = directoryContentsList.getDirectory();
     directoryContentsList.setDirectory(f, includeDirectories, includeFiles);
@@ -97,7 +97,7 @@ void FileListComponent::setContentDirectory(const File& f, bool includeDirectori
 //==============================================================================
 void FileListComponent::changeListenerCallback (ChangeBroadcaster*)
 {
-    DBG(getTitle() + "::FLC:: change listener callback");
+    //DBG(getTitle() + "::FLC:: change listener callback");
 	
     updateContent();
 
@@ -105,23 +105,23 @@ void FileListComponent::changeListenerCallback (ChangeBroadcaster*)
 
     if (lastDirectory != directoryContentsList.getDirectory())
     {
-        DBG(getTitle() + "::FLC: last dir is not DCL dir. Last " + lastDirectory.getFullPathName() + ". DCL : " + directoryContentsList.getDirectory().getFullPathName());
+        //DBG(getTitle() + "::FLC: last dir is not DCL dir. Last " + lastDirectory.getFullPathName() + ". DCL : " + directoryContentsList.getDirectory().getFullPathName());
         lastDirectory = directoryContentsList.getDirectory();
     }
 
 	if (fileWaitingToBeSelected.isAChildOf(directoryContentsList.getDirectory())) 
     {
-        DBG(getTitle() + "::FLC:: Waiting file is a child of DCL dir " + fileWaitingToBeSelected.getFullPathName());
+        //DBG(getTitle() + "::FLC:: Waiting file is a child of DCL dir " + fileWaitingToBeSelected.getFullPathName());
         setSelectedFile(fileWaitingToBeSelected);
     }
     else if(currentSelectedFile.isAChildOf(directoryContentsList.getDirectory()))
     {
-        DBG(getTitle() + "::FLC:: Current selected file is a child of DCL dir " + fileWaitingToBeSelected.getFullPathName());
+        //DBG(getTitle() + "::FLC:: Current selected file is a child of DCL dir " + fileWaitingToBeSelected.getFullPathName());
         setSelectedFile(currentSelectedFile);
     }
 	else 
     {
-        DBG(getTitle() + "::FLC:: DCL loaded. Clear waiting.");
+        //DBG(getTitle() + "::FLC:: DCL loaded. Clear waiting.");
         fileWaitingToBeSelected = File();
         deselectAllRows();
     }
