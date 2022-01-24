@@ -118,7 +118,13 @@ SliderParameterAttachment::SliderParameterAttachment (RangedAudioParameter& para
 {
     slider.valueFromTextFunction = [&param] (const String& text) { return (double) param.convertFrom0to1 (param.getValueForText (text)); };
     slider.textFromValueFunction = [&param] (double value) { return param.getText (param.convertTo0to1 ((float) value), 0); };
-    slider.setDoubleClickReturnValue (true, param.convertFrom0to1 (param.getDefaultValue()));
+	#if JUCE_MAC || JUCE_IOS
+		const auto modifier = ModifierKeys::altModifier;
+	#else
+	    const auto modifier = ModifierKeys::ctrlModifier;
+	#endif
+	
+    slider.setDoubleClickReturnValue (true, param.convertFrom0to1 (param.getDefaultValue()), modifier);
 
     auto range = param.getNormalisableRange();
 
