@@ -833,7 +833,7 @@ public:
             {
                 mouseDoubleClick();
             }
-            else if (normRange.end > normRange.start)
+            else if (normRange.end > normRange.start && e.mods.isLeftButtonDown())
             {
                 useDragEvents = true;
 
