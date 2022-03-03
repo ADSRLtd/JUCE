@@ -109,7 +109,7 @@ void FileListComponent::changeListenerCallback (ChangeBroadcaster*)
         lastDirectory = directoryContentsList.getDirectory();
     }
 
-	if (fileWaitingToBeSelected.isAChildOf(directoryContentsList.getDirectory())) 
+	if (!fileWaitingToBeSelected.getFileName().startsWith("VOLUMES:") && fileWaitingToBeSelected.isAChildOf(directoryContentsList.getDirectory()))
     {
         //DBG(getTitle() + "::FLC:: Waiting file is a child of DCL dir " + fileWaitingToBeSelected.getFullPathName());
         setSelectedFile(fileWaitingToBeSelected);
