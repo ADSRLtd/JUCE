@@ -28,6 +28,7 @@ namespace juce
 
 Image juce_createIconForFile (const File& file);
 
+#define DEBUG_FLC 0
 
 //==============================================================================
 FileListComponent::FileListComponent (DirectoryContentsList& listToShow)
@@ -67,12 +68,16 @@ void FileListComponent::scrollToTop()
 
 void FileListComponent::setSelectedFile (const File& f)
 {
-    //DBG(getTitle() + "::FLC::setSelectedFile " + f.getFullPathName() + " : " + directoryContentsList.getDirectory().getFullPathName());
+#if DEBUG_FLC
+    DBG(getTitle() + "::FLC::setSelectedFile " + f.getFullPathName() + " : " + directoryContentsList.getDirectory().getFullPathName());
+#endif
     for (int i = directoryContentsList.getNumFiles(); --i >= 0;)
     {
         if (directoryContentsList.getFile (i) == f)
         {
-            //DBG(getTitle() + "::FLC:: selecting " + f.getFullPathName() + " at index " + juce::String(i) + ".Clear waiting. ###");
+#if DEBUG_FLC
+            DBG(getTitle() + "::FLC:: selecting " + f.getFullPathName() + " at index " + juce::String(i) + ".Clear waiting. ###");
+#endif
 			fileWaitingToBeSelected = File();
 
             selectRow (i);
@@ -81,7 +86,9 @@ void FileListComponent::setSelectedFile (const File& f)
         }
     }
 
-    //DBG(getTitle() + "::FLC::setSelectedFile. Waiting to select " + f.getFullPathName());
+#if DEBUG_FLC
+    DBG(getTitle() + "::FLC::setSelectedFile. Waiting to select " + f.getFullPathName());
+#endif
 
     deselectAllRows();
     fileWaitingToBeSelected = f;
@@ -89,7 +96,9 @@ void FileListComponent::setSelectedFile (const File& f)
 
 void FileListComponent::setContentDirectory(const File& f, bool includeDirectories, bool includeFiles)
 {
-    //DBG(getTitle() + "::FLC::setContentDirectory " + f.getFullPathName());
+#if DEBUG_FLC
+    DBG(getTitle() + "::FLC::setContentDirectory " + f.getFullPathName());
+#endif
     currentSelectedFile = getSelectedFile();
     lastDirectory = directoryContentsList.getDirectory();
     directoryContentsList.setDirectory(f, includeDirectories, includeFiles);
@@ -97,7 +106,9 @@ void FileListComponent::setContentDirectory(const File& f, bool includeDirectori
 //==============================================================================
 void FileListComponent::changeListenerCallback (ChangeBroadcaster*)
 {
-    //DBG(getTitle() + "::FLC:: change listener callback");
+#if DEBUG_FLC
+    DBG(getTitle() + "::FLC:: change listener callback");
+#endif
 	
     updateContent();
 
@@ -105,23 +116,31 @@ void FileListComponent::changeListenerCallback (ChangeBroadcaster*)
 
     if (lastDirectory != directoryContentsList.getDirectory())
     {
-        //DBG(getTitle() + "::FLC: last dir is not DCL dir. Last " + lastDirectory.getFullPathName() + ". DCL : " + directoryContentsList.getDirectory().getFullPathName());
+#if DEBUG_FLC
+        DBG(getTitle() + "::FLC: last dir is not DCL dir. Last " + lastDirectory.getFullPathName() + ". DCL : " + directoryContentsList.getDirectory().getFullPathName());
+#endif
         lastDirectory = directoryContentsList.getDirectory();
     }
 
-	if (!fileWaitingToBeSelected.getFileName().startsWith("VOLUMES:") && fileWaitingToBeSelected.isAChildOf(directoryContentsList.getDirectory()))
+	if (fileWaitingToBeSelected.isAChildOf(directoryContentsList.getDirectory())) 
     {
-        //DBG(getTitle() + "::FLC:: Waiting file is a child of DCL dir " + fileWaitingToBeSelected.getFullPathName());
+#if DEBUG_FLC
+        DBG(getTitle() + "::FLC:: Waiting file is a child of DCL dir " + fileWaitingToBeSelected.getFullPathName());
+#endif
         setSelectedFile(fileWaitingToBeSelected);
     }
     else if(currentSelectedFile.isAChildOf(directoryContentsList.getDirectory()))
     {
-        //DBG(getTitle() + "::FLC:: Current selected file is a child of DCL dir " + fileWaitingToBeSelected.getFullPathName());
+#if DEBUG_FLC
+        DBG(getTitle() + "::FLC:: Current selected file is a child of DCL dir " + fileWaitingToBeSelected.getFullPathName());
+#endif
         setSelectedFile(currentSelectedFile);
     }
 	else 
     {
-        //DBG(getTitle() + "::FLC:: DCL loaded. Clear waiting.");
+#if DEBUG_FLC
+        DBG(getTitle() + "::FLC:: DCL loaded. Clear waiting.");
+#endif
         fileWaitingToBeSelected = File();
         deselectAllRows();
     }
@@ -136,6 +155,7 @@ public:
     ItemComponent (FileListComponent& fc, TimeSliceThread& t)
         : owner (fc), thread (t)
     {
+        setBufferedToImage(true);
     }
 
     ~ItemComponent() override
