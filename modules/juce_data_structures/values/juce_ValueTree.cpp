@@ -661,8 +661,6 @@ ValueTree::ValueTree() noexcept
 {
 }
 
-JUCE_DECLARE_DEPRECATED_STATIC (const ValueTree ValueTree::invalid;)
-
 ValueTree::ValueTree (const Identifier& type)  : object (new ValueTree::SharedObject (type))
 {
     jassert (type.toString().isNotEmpty()); // All objects must be given a sensible type name!
@@ -1194,9 +1192,22 @@ void ValueTree::Listener::valueTreePropertyChanged   (ValueTree&, const Identifi
 void ValueTree::Listener::valueTreeChildAdded        (ValueTree&, ValueTree&)        {}
 void ValueTree::Listener::valueTreeChildRemoved      (ValueTree&, ValueTree&, int)   {}
 void ValueTree::Listener::valueTreeChildOrderChanged (ValueTree&, int, int)          {}
-void ValueTree::Listener::valueTreeParentChanged     (ValueTree&)                    {}
-void ValueTree::Listener::valueTreeRedirected(ValueTree&) {}
+void ValueTree::Listener::valueTreeParentChanged     (ValueTree&)                    {}void ValueTree::Listener::valueTreeRedirected(ValueTree&) {}
 void ValueTree::Listener::valueTreeStructureChanged  (ValueTree&)                    {}
+
+//==============================================================================
+#if JUCE_ALLOW_STATIC_NULL_VARIABLES
+
+JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
+JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4996)
+
+const ValueTree ValueTree::invalid;
+
+JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+JUCE_END_IGNORE_WARNINGS_MSVC
+
+#endif
+
 
 //==============================================================================
 //==============================================================================
