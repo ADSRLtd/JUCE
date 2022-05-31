@@ -760,7 +760,7 @@ void ListBox::selectRowsBasedOnModifierKeys (const int row,
     {
         selectRangeOfRows (lastRowSelected, row);
     }
-    else if ((! mods.isPopupMenu()) || ! isRowSelected (row))
+    else if ((! mods.isPopupMenu()) && ! isRowSelected (row))
     {
         selectRowInternal (row, false, ! (multipleSelection && (! isMouseUpEvent) && isRowSelected (row)), true);
     }
