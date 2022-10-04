@@ -485,6 +485,7 @@ public:
         */
         JUCE_NODISCARD Options withTargetComponent (Component* targetComponent) const;
         JUCE_NODISCARD Options withTargetComponent (Component& targetComponent) const;
+        JUCE_NODISCARD Options withTargetComponentTranslated (Component* targetComponent, int xDelta, int yDelta) const;
 
         /** Sets the region of the screen next to which the menu should be displayed.
 
