@@ -142,10 +142,12 @@ public:
         const var& newVal, const var& oldVal, bool isAdding, bool isDeleting,
         ValueTree::Listener* listenerToExclude = nullptr)
     {
+        juce::ignoreUnused(targetObject, isDeleting, isAdding);
         Array<const UndoableAction*> actionsFound;
         undoManager->getActionsInCurrentTransaction(actionsFound);
 
-        const auto last = actionsFound.getLast();
+        // I don't know why this was all commented out
+//        const auto last = actionsFound.getLast();
     	
     	//if(const auto previousSetPropAction = dynamic_cast<const SetPropertyAction*>(last))
     	//{
@@ -1198,7 +1200,8 @@ void ValueTree::Listener::valueTreePropertyChanged   (ValueTree&, const Identifi
 void ValueTree::Listener::valueTreeChildAdded        (ValueTree&, ValueTree&)        {}
 void ValueTree::Listener::valueTreeChildRemoved      (ValueTree&, ValueTree&, int)   {}
 void ValueTree::Listener::valueTreeChildOrderChanged (ValueTree&, int, int)          {}
-void ValueTree::Listener::valueTreeParentChanged     (ValueTree&)                    {}void ValueTree::Listener::valueTreeRedirected(ValueTree&) {}
+void ValueTree::Listener::valueTreeParentChanged     (ValueTree&)                    {}
+void ValueTree::Listener::valueTreeRedirected(ValueTree&) {}
 void ValueTree::Listener::valueTreeStructureChanged  (ValueTree&)                    {}
 
 //==============================================================================
