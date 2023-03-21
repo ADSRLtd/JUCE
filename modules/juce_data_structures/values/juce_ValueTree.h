@@ -70,6 +70,8 @@ namespace juce
 */
 class JUCE_API  ValueTree  final
 {
+    JUCE_PUBLIC_IN_DLL_BUILD (class SharedObject)
+
 public:
 
 	struct SetTreePropertyAction
@@ -424,7 +426,7 @@ public:
         using iterator_category  = std::forward_iterator_tag;
 
     private:
-        void* internal;
+        SharedObject** internal = nullptr;
     };
 
     /** Returns a start iterator for the children in this tree. */
@@ -640,7 +642,6 @@ public:
 
 private:
     //==============================================================================
-    JUCE_PUBLIC_IN_DLL_BUILD (class SharedObject)
     friend class SharedObject;
 
     ReferenceCountedObjectPtr<SharedObject> object;
