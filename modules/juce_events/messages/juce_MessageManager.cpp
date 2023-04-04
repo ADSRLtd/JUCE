@@ -2,7 +2,7 @@
   ==============================================================================
 
    This file is part of the JUCE library.
-   Copyright (c) 2020 - Raw Material Software Limited
+   Copyright (c) 2022 - Raw Material Software Limited
 
    JUCE is an open source library subject to commercial or open-source
    licensing.
@@ -26,6 +26,8 @@ namespace juce
 MessageManager::MessageManager() noexcept
   : messageThreadId (Thread::getCurrentThreadId())
 {
+    JUCE_VERSION_ID
+
     if (JUCEApplicationBase::isStandaloneApp())
         Thread::setCurrentThreadName ("JUCE Message Thread");
 }
@@ -80,7 +82,10 @@ bool MessageManager::MessageBase::post()
 //==============================================================================
 #if ! (JUCE_MAC || JUCE_IOS || JUCE_ANDROID)
 // implemented in platform-specific code (juce_linux_Messaging.cpp and juce_win32_Messaging.cpp)
+namespace detail
+{
 bool dispatchNextMessageOnSystemQueue (bool returnIfNoPendingMessages);
+} // namespace detail
 
 class MessageManager::QuitMessage   : public MessageManager::MessageBase
 {
@@ -104,7 +109,7 @@ void MessageManager::runDispatchLoop()
     {
         JUCE_TRY
         {
-            if (! dispatchNextMessageOnSystemQueue (false))
+            if (! detail::dispatchNextMessageOnSystemQueue (false))
                 Thread::sleep (1);
         }
         JUCE_CATCH_EXCEPTION
@@ -128,7 +133,7 @@ bool MessageManager::runDispatchLoopUntil (int millisecondsToRunFor)
     {
         JUCE_TRY
         {
-            if (! dispatchNextMessageOnSystemQueue (millisecondsToRunFor >= 0))
+            if (! detail::dispatchNextMessageOnSystemQueue (millisecondsToRunFor >= 0))
                 Thread::sleep (1);
         }
         JUCE_CATCH_EXCEPTION
@@ -223,6 +228,8 @@ void MessageManager::deregisterBroadcastListener (ActionListener* const listener
 //==============================================================================
 bool MessageManager::isThisTheMessageThread() const noexcept
 {
+    const std::lock_guard<std::mutex> lock { messageThreadIdMutex };
+
     return Thread::getCurrentThreadId() == messageThreadId;
 }
 
@@ -230,10 +237,10 @@ void MessageManager::setCurrentThreadAsMessageThread()
 {
     auto thisThread = Thread::getCurrentThreadId();
 
-    if (messageThreadId != thisThread)
-    {
-        messageThreadId = thisThread;
+    const std::lock_guard<std::mutex> lock { messageThreadIdMutex };
 
+    if (std::exchange (messageThreadId, thisThread) != thisThread)
+    {
        #if JUCE_WINDOWS
         // This is needed on windows to make sure the message window is created by this thread
         doPlatformSpecificShutdown();

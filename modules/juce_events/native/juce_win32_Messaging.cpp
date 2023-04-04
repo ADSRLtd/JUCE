@@ -2,7 +2,7 @@
   ==============================================================================
 
    This file is part of the JUCE library.
-   Copyright (c) 2020 - Raw Material Software Limited
+   Copyright (c) 2022 - Raw Material Software Limited
 
    JUCE is an open source library subject to commercial or open-source
    licensing.
@@ -24,10 +24,6 @@ namespace juce
 {
 
 extern HWND juce_messageWindowHandle;
-
-#if JUCE_MODULE_AVAILABLE_juce_audio_plugin_client && JucePlugin_Build_Unity
- bool juce_isRunningInUnity();
-#endif
 
 #if JUCE_MODULE_AVAILABLE_juce_gui_extra
  LRESULT juce_offerEventToActiveXControl (::MSG&);
@@ -94,13 +90,11 @@ public:
         if (! shouldTriggerMessageQueueDispatch)
             return;
 
-       #if JUCE_MODULE_AVAILABLE_juce_audio_plugin_client && JucePlugin_Build_Unity
-        if (juce_isRunningInUnity())
+        if (detail::RunningInUnity::state)
         {
             SendNotifyMessage (juce_messageWindowHandle, customMessageID, 0, 0);
             return;
         }
-        #endif
 
         PostMessage (juce_messageWindowHandle, customMessageID, 0, 0);
     }
@@ -260,6 +254,9 @@ JUCE_IMPLEMENT_SINGLETON (InternalMessageQueue)
 const TCHAR InternalMessageQueue::messageWindowName[] = _T("JUCEWindow");
 
 //==============================================================================
+namespace detail
+{
+
 bool dispatchNextMessageOnSystemQueue (bool returnIfNoPendingMessages)
 {
     if (auto* queue = InternalMessageQueue::getInstanceWithoutCreating())
@@ -267,6 +264,8 @@ bool dispatchNextMessageOnSystemQueue (bool returnIfNoPendingMessages)
 
     return false;
 }
+
+} // namespace detail
 
 bool MessageManager::postMessageToSystemQueue (MessageManager::MessageBase* const message)
 {
@@ -288,7 +287,7 @@ void MessageManager::broadcastMessage (const String& value)
 //==============================================================================
 void MessageManager::doPlatformSpecificInitialisation()
 {
-    ignoreUnused (OleInitialize (nullptr));
+    [[maybe_unused]] const auto result = OleInitialize (nullptr);
     InternalMessageQueue::getInstance();
 }
 
@@ -299,25 +298,24 @@ void MessageManager::doPlatformSpecificShutdown()
 }
 
 //==============================================================================
-struct MountedVolumeListChangeDetector::Pimpl   : private DeviceChangeDetector
+struct MountedVolumeListChangeDetector::Pimpl
 {
-    Pimpl (MountedVolumeListChangeDetector& d) : DeviceChangeDetector (L"MountedVolumeList"), owner (d)
+    explicit Pimpl (MountedVolumeListChangeDetector& d)
+        : owner (d)
     {
         File::findFileSystemRoots (lastVolumeList);
     }
 
-    void systemDeviceChanged() override
+    void systemDeviceChanged()
     {
         Array<File> newList;
         File::findFileSystemRoots (newList);
 
-        if (lastVolumeList != newList)
-        {
-            lastVolumeList = newList;
+        if (std::exchange (lastVolumeList, newList) != newList)
             owner.mountedVolumeListChanged();
-        }
     }
 
+    DeviceChangeDetector detector { L"MountedVolumeList", [this] { systemDeviceChanged(); } };
     MountedVolumeListChangeDetector& owner;
     Array<File> lastVolumeList;
 };

@@ -2,7 +2,7 @@
   ==============================================================================
 
    This file is part of the JUCE examples.
-   Copyright (c) 2020 - Raw Material Software Limited
+   Copyright (c) 2022 - Raw Material Software Limited
 
    The code included in this file is provided under the terms of the ISC license
    http://www.isc.org/downloads/software-support-policy/isc-license. Permission
@@ -32,7 +32,7 @@
 
  dependencies:     juce_core, juce_data_structures, juce_events, juce_graphics,
                    juce_gui_basics
- exporters:        xcode_mac, vs2019, androidstudio, xcode_iphone
+ exporters:        xcode_mac, vs2022, androidstudio, xcode_iphone
 
  moduleFlags:      JUCE_STRICT_REFCOUNTEDPOINTER=1
 
@@ -174,10 +174,10 @@ public:
         grid.templateRows = { Grid::TrackInfo (Grid::Fr (1)), Grid::TrackInfo (Grid::Fr (1)), Grid::TrackInfo (Grid::Fr (2)) };
         grid.templateColumns = { Grid::TrackInfo (Grid::Fr (1)), Grid::TrackInfo (Grid::Fr (1)) };
 
-        grid.items = { GridItem (descriptionLabel).withMargin ({ 2 }).withColumn ({ GridItem::Span (2) }),
+        grid.items = { GridItem (descriptionLabel).withMargin ({ 2 }).withColumn ({ GridItem::Span (2), {} }),
                        GridItem (buttons).withMargin ({ 2 }),
                        GridItem (sliders).withMargin ({ 2 }),
-                       GridItem (treeView).withMargin ({ 2 }).withColumn ({ GridItem::Span (2) }) };
+                       GridItem (treeView).withMargin ({ 2 }).withColumn ({ GridItem::Span (2), {} }) };
 
         grid.performLayout (getLocalBounds());
     }
@@ -190,10 +190,19 @@ private:
         ButtonsComponent()
         {
             addAndMakeVisible (radioButtons);
+
+            textButton.setHasFocusOutline (true);
             addAndMakeVisible (textButton);
 
             shapeButton.setShape (getJUCELogoPath(), false, true, false);
-            shapeButton.onClick = [] { AlertWindow::showMessageBoxAsync (MessageBoxIconType::InfoIcon, "Alert", "This is an AlertWindow"); };
+            shapeButton.onClick = [this]
+            {
+                auto options = MessageBoxOptions::makeOptionsOk (MessageBoxIconType::InfoIcon,
+                                                                 "Alert",
+                                                                 "This is an AlertWindow");
+                messageBox = AlertWindow::showScopedAsync (options, nullptr);
+            };
+            shapeButton.setHasFocusOutline (true);
             addAndMakeVisible (shapeButton);
         }
 
@@ -217,6 +226,7 @@ private:
                 {
                     b.setRadioGroupId (1);
                     b.setButtonText ("Button " + String (index++));
+                    b.setHasFocusOutline (true);
                     addAndMakeVisible (b);
                 }
 
@@ -246,6 +256,7 @@ private:
                                   Colours::darkorange,
                                   Colours::darkorange.brighter (0.5f),
                                   Colours::darkorange.brighter (0.75f) };
+        ScopedMessageBox messageBox;
 
         //==============================================================================
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ButtonsComponent)
@@ -288,7 +299,7 @@ private:
                                      Grid::TrackInfo (Grid::Fr (1)),
                                      Grid::TrackInfo (Grid::Fr (1)) };
 
-            grid.items = { GridItem (horizontalSlider).withMargin ({ 2 }).withColumn ({ GridItem::Span (2) }),
+            grid.items = { GridItem (horizontalSlider).withMargin ({ 2 }).withColumn ({ GridItem::Span (2), {} }),
                            GridItem (incDecSlider).withMargin ({ 2 }) };
 
             for (auto& rotary : rotarySliders)
@@ -418,6 +429,7 @@ constexpr NameAndRole accessibilityRoles[]
     { "Ignored",       AccessibilityRole::ignored },
     { "Unspecified",   AccessibilityRole::unspecified },
     { "Button",        AccessibilityRole::button },
+    { "Toggle",        AccessibilityRole::toggleButton },
     { "ComboBox",      AccessibilityRole::comboBox },
     { "Slider",        AccessibilityRole::slider },
     { "Static Text",   AccessibilityRole::staticText },
@@ -464,8 +476,8 @@ public:
 
         grid.templateColumns = { Grid::TrackInfo (Grid::Fr (1)), Grid::TrackInfo (Grid::Fr (1)) };
 
-        grid.items = { GridItem (descriptionLabel).withMargin ({ 2 }).withColumn ({ GridItem::Span (2) }),
-                       GridItem (infoComponent).withMargin ({ 2 }).withColumn ({ GridItem::Span (2) }),
+        grid.items = { GridItem (descriptionLabel).withMargin ({ 2 }).withColumn ({ GridItem::Span (2), {} }),
+                       GridItem (infoComponent).withMargin ({ 2 }).withColumn ({ GridItem::Span (2), {} }),
                        GridItem (actionsComponent).withMargin ({ 2 }),
                        GridItem (valueInterfaceComponent).withMargin ({ 2 }),
                        GridItem (stateComponent).withMargin ({ 2 }),
@@ -581,16 +593,16 @@ private:
                                      Grid::TrackInfo (Grid::Fr (1)) };
 
             grid.items = { GridItem (titleLabel).withMargin ({ 2 }),
-                           GridItem (titleEditor).withMargin ({ 2 }).withColumn ({ GridItem::Span (2) }),
+                           GridItem (titleEditor).withMargin ({ 2 }).withColumn ({ GridItem::Span (2), {} }),
 
                            GridItem (roleLabel).withMargin ({ 2 }),
-                           GridItem (roleBox).withMargin ({ 2 }).withColumn ({ GridItem::Span (2) }),
+                           GridItem (roleBox).withMargin ({ 2 }).withColumn ({ GridItem::Span (2), {} }),
 
                            GridItem (descriptionLabel).withMargin ({ 2 }),
-                           GridItem (descriptionEditor).withMargin ({ 2 }).withColumn ({ GridItem::Span (2) }),
+                           GridItem (descriptionEditor).withMargin ({ 2 }).withColumn ({ GridItem::Span (2), {} }),
 
                            GridItem (helpLabel).withMargin ({ 2 }),
-                           GridItem (helpEditor).withMargin ({ 2 }).withColumn ({ GridItem::Span (2) }) };
+                           GridItem (helpEditor).withMargin ({ 2 }).withColumn ({ GridItem::Span (2), {} }) };
 
             grid.performLayout (getLocalBounds());
         }
@@ -802,7 +814,7 @@ private:
             }();
 
             grid.items = { GridItem (valueTypeBox).withMargin (2), GridItem (readOnlyToggle).withMargin (2),
-                           GridItem (valueEditComponent).withMargin (2).withColumn ({ GridItem::Span (2) }), };
+                           GridItem (valueEditComponent).withMargin (2).withColumn ({ GridItem::Span (2), {} }), };
 
             grid.performLayout (getLocalBounds());
         }
@@ -906,7 +918,7 @@ private:
 
                 grid.items = { GridItem (minLabel).withMargin (2),       GridItem (maxLabel).withMargin (2),       GridItem (intervalLabel).withMargin (2),
                                GridItem (minValueEditor).withMargin (2), GridItem (maxValueEditor).withMargin (2), GridItem (intervalValueEditor).withMargin (2),
-                               GridItem (valueSlider).withMargin (2).withColumn ({ GridItem::Span (3) }) };
+                               GridItem (valueSlider).withMargin (2).withColumn ({ GridItem::Span (3), {} }) };
 
                 grid.performLayout (getLocalBounds());
             }
@@ -1279,11 +1291,11 @@ private:
                                          Grid::TrackInfo (Grid::Fr (1)),
                                          Grid::TrackInfo (Grid::Fr (1)) };
 
-                grid.items = { GridItem (titleLabel).withMargin (2).withColumn ({ GridItem::Span (4) }),
-                               GridItem (focusableToggle).withMargin (2).withColumn ({ GridItem::Span (2) }),
-                               GridItem (defaultToggle).withMargin (2).withColumn ({ GridItem::Span (2) }),
+                grid.items = { GridItem (titleLabel).withMargin (2).withColumn ({ GridItem::Span (4), {} }),
+                               GridItem (focusableToggle).withMargin (2).withColumn ({ GridItem::Span (2), {} }),
+                               GridItem (defaultToggle).withMargin (2).withColumn ({ GridItem::Span (2), {} }),
                                GridItem (orderLabel).withMargin (2),
-                               GridItem (orderBox).withMargin (2).withColumn ({ GridItem::Span (3) }) };
+                               GridItem (orderBox).withMargin (2).withColumn ({ GridItem::Span (3), {} }) };
 
                 grid.performLayout (getLocalBounds());
             }
@@ -1403,7 +1415,7 @@ public:
         grid.templateColumns = { Grid::TrackInfo (Grid::Fr (3)),
                                  Grid::TrackInfo (Grid::Fr (2)) };
 
-        grid.items = { GridItem (descriptionLabel).withMargin (2).withColumn ({ GridItem::Span (2) }),
+        grid.items = { GridItem (descriptionLabel).withMargin (2).withColumn ({ GridItem::Span (2), {} }),
                        GridItem (textEntryBox).withMargin (2).withArea ({ 2 }, { 1 }, { 5 }, { 2 }),
                        GridItem (priorityComboBox).withMargin (2).withArea ({ 5 }, { 1 }, { 6 }, { 2 }),
                        GridItem (announceButton).withMargin (2).withArea ({ 4 }, { 2 }, { 5 }, { 3 }) };

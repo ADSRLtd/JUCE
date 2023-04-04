@@ -2,7 +2,7 @@
   ==============================================================================
 
    This file is part of the JUCE examples.
-   Copyright (c) 2020 - Raw Material Software Limited
+   Copyright (c) 2022 - Raw Material Software Limited
 
    The code included in this file is provided under the terms of the ISC license
    http://www.isc.org/downloads/software-support-policy/isc-license. Permission
@@ -34,7 +34,7 @@
                    juce_audio_plugin_client, juce_audio_processors,
                    juce_audio_utils, juce_core, juce_data_structures,
                    juce_events, juce_graphics, juce_gui_basics, juce_gui_extra
- exporters:        xcode_mac, vs2019, linux_make
+ exporters:        xcode_mac, vs2022, linux_make
 
  moduleFlags:      JUCE_STRICT_REFCOUNTEDPOINTER=1
 
@@ -121,13 +121,14 @@ public:
         return listener.handledEmbeddedUIMessage (msg, parm2, parm3);
     }
 
-    Steinberg::uint32 PLUGIN_API addRef() override   { return (Steinberg::uint32) ++refCount; }
-    Steinberg::uint32 PLUGIN_API release() override  { return (Steinberg::uint32) --refCount; }
+    Steinberg::uint32 PLUGIN_API addRef() override   { return ++refCount; }
+    Steinberg::uint32 PLUGIN_API release() override  { return --refCount; }
 
     Steinberg::tresult PLUGIN_API queryInterface (const Steinberg::TUID tuid, void** obj) override
     {
         if (std::memcmp (tuid, iid, sizeof (Steinberg::TUID)) == 0)
         {
+            ++refCount;
             *obj = this;
             return Steinberg::kResultOk;
         }
@@ -138,7 +139,7 @@ public:
 
 private:
     EmbeddedViewListener& listener;
-    std::atomic<int> refCount { 1 };
+    std::atomic<Steinberg::uint32> refCount { 1 };
 };
 
 JUCE_END_IGNORE_WARNINGS_GCC_LIKE
@@ -189,7 +190,7 @@ class ReaperEmbeddedViewDemo  : public AudioProcessor,
 public:
     ReaperEmbeddedViewDemo()
     {
-        addParameter (gain = new AudioParameterFloat ("gain", "Gain", 0.0f, 1.0f, 0.5f));
+        addParameter (gain = new AudioParameterFloat ({ "gain", 1 }, "Gain", 0.0f, 1.0f, 0.5f));
         startTimerHz (60);
     }
 
@@ -237,11 +238,8 @@ public:
 
     int32_t queryIEditController (const Steinberg::TUID tuid, void** obj) override
     {
-        if (std::memcmp (tuid, embeddedUi.iid, sizeof (Steinberg::TUID)) == 0)
-        {
-            *obj = &embeddedUi;
+        if (embeddedUi.queryInterface (tuid, obj) == Steinberg::kResultOk)
             return Steinberg::kResultOk;
-        }
 
         *obj = nullptr;
         return Steinberg::kNoInterface;

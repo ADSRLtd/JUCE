@@ -2,15 +2,15 @@
   ==============================================================================
 
    This file is part of the JUCE library.
-   Copyright (c) 2020 - Raw Material Software Limited
+   Copyright (c) 2022 - Raw Material Software Limited
 
    JUCE is an open source library subject to commercial or open-source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 6 End-User License
-   Agreement and JUCE Privacy Policy (both effective as of the 16th June 2020).
+   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
+   Agreement and JUCE Privacy Policy.
 
-   End User License Agreement: www.juce.com/juce-6-licence
+   End User License Agreement: www.juce.com/juce-7-licence
    Privacy Policy: www.juce.com/juce-privacy-policy
 
    Or: You may also use this code under the terms of the GPL v3 (see
@@ -35,9 +35,9 @@ namespace juce
 
     // This is an internal list of callbacks (but currently used between modules)
     Array<AppInactivityCallback*> appBecomingInactiveCallbacks;
-}
+} // namespace juce
 
-#if JUCE_PUSH_NOTIFICATIONS && defined (__IPHONE_10_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+#if JUCE_PUSH_NOTIFICATIONS
 @interface JuceAppStartupDelegate : NSObject <UIApplicationDelegate, UNUserNotificationCenterDelegate>
 #else
 @interface JuceAppStartupDelegate : NSObject <UIApplicationDelegate>
@@ -59,27 +59,47 @@ namespace juce
    completionHandler: (void (^)(void)) completionHandler;
 - (void) applicationDidReceiveMemoryWarning: (UIApplication *) application;
 #if JUCE_PUSH_NOTIFICATIONS
-- (void) application: (UIApplication*) application didRegisterUserNotificationSettings: (UIUserNotificationSettings*) notificationSettings;
-- (void) application: (UIApplication*) application didRegisterForRemoteNotificationsWithDeviceToken: (NSData*) deviceToken;
-- (void) application: (UIApplication*) application didFailToRegisterForRemoteNotificationsWithError: (NSError*) error;
-- (void) application: (UIApplication*) application didReceiveRemoteNotification: (NSDictionary*) userInfo;
-- (void) application: (UIApplication*) application didReceiveRemoteNotification: (NSDictionary*) userInfo
-  fetchCompletionHandler: (void (^)(UIBackgroundFetchResult result)) completionHandler;
-- (void) application: (UIApplication*) application handleActionWithIdentifier: (NSString*) identifier
-  forRemoteNotification: (NSDictionary*) userInfo withResponseInfo: (NSDictionary*) responseInfo
-   completionHandler: (void(^)()) completionHandler;
-- (void) application: (UIApplication*) application didReceiveLocalNotification: (UILocalNotification*) notification;
-- (void) application: (UIApplication*) application handleActionWithIdentifier: (NSString*) identifier
-  forLocalNotification: (UILocalNotification*) notification completionHandler: (void(^)()) completionHandler;
-- (void) application: (UIApplication*) application handleActionWithIdentifier: (NSString*) identifier
-  forLocalNotification: (UILocalNotification*) notification withResponseInfo: (NSDictionary*) responseInfo
-   completionHandler: (void(^)()) completionHandler;
-#if defined (__IPHONE_10_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
-- (void) userNotificationCenter: (UNUserNotificationCenter*) center willPresentNotification: (UNNotification*) notification
+
+- (void)                                 application: (UIApplication*) application
+    didRegisterForRemoteNotificationsWithDeviceToken: (NSData*) deviceToken;
+- (void)                                 application: (UIApplication*) application
+    didFailToRegisterForRemoteNotificationsWithError: (NSError*) error;
+- (void)                                 application: (UIApplication*) application
+                        didReceiveRemoteNotification: (NSDictionary*) userInfo;
+- (void)                                 application: (UIApplication*) application
+                        didReceiveRemoteNotification: (NSDictionary*) userInfo
+                              fetchCompletionHandler: (void (^)(UIBackgroundFetchResult result)) completionHandler;
+- (void)                                 application: (UIApplication*) application
+                          handleActionWithIdentifier: (NSString*) identifier
+                               forRemoteNotification: (NSDictionary*) userInfo
+                                    withResponseInfo: (NSDictionary*) responseInfo
+                                   completionHandler: (void(^)()) completionHandler;
+
+JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
+
+- (void)                    application: (UIApplication*) application
+    didRegisterUserNotificationSettings: (UIUserNotificationSettings*) notificationSettings;
+- (void)                    application: (UIApplication*) application
+            didReceiveLocalNotification: (UILocalNotification*) notification;
+- (void)                    application: (UIApplication*) application
+             handleActionWithIdentifier: (NSString*) identifier
+                   forLocalNotification: (UILocalNotification*) notification
+                      completionHandler: (void(^)()) completionHandler;
+- (void)                    application: (UIApplication*) application
+             handleActionWithIdentifier: (NSString*) identifier
+                   forLocalNotification: (UILocalNotification*) notification
+                       withResponseInfo: (NSDictionary*) responseInfo
+                      completionHandler: (void(^)()) completionHandler;
+
+JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+
+- (void) userNotificationCenter: (UNUserNotificationCenter*) center
+        willPresentNotification: (UNNotification*) notification
           withCompletionHandler: (void (^)(UNNotificationPresentationOptions options)) completionHandler;
-- (void) userNotificationCenter: (UNUserNotificationCenter*) center didReceiveNotificationResponse: (UNNotificationResponse*) response
+- (void) userNotificationCenter: (UNUserNotificationCenter*) center
+ didReceiveNotificationResponse: (UNNotificationResponse*) response
           withCompletionHandler: (void(^)())completionHandler;
-#endif
+
 #endif
 
 @end
@@ -93,7 +113,7 @@ namespace juce
     self = [super init];
     appSuspendTask = UIBackgroundTaskInvalid;
 
-   #if JUCE_PUSH_NOTIFICATIONS && defined (__IPHONE_10_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+   #if JUCE_PUSH_NOTIFICATIONS
     [UNUserNotificationCenter currentNotificationCenter].delegate = self;
    #endif
 
@@ -194,25 +214,9 @@ namespace juce
 }
 
 #if JUCE_PUSH_NOTIFICATIONS
-- (void) application: (UIApplication*) application didRegisterUserNotificationSettings: (UIUserNotificationSettings*) notificationSettings
-{
-    ignoreUnused (application);
 
-    SEL selector = @selector (application:didRegisterUserNotificationSettings:);
-
-    if (_pushNotificationsDelegate != nil && [_pushNotificationsDelegate respondsToSelector: selector])
-    {
-        NSInvocation* invocation = [NSInvocation invocationWithMethodSignature: [_pushNotificationsDelegate methodSignatureForSelector: selector]];
-        [invocation setSelector: selector];
-        [invocation setTarget: _pushNotificationsDelegate];
-        [invocation setArgument: &application          atIndex:2];
-        [invocation setArgument: &notificationSettings atIndex:3];
-
-        [invocation invoke];
-    }
-}
-
-- (void) application: (UIApplication*) application didRegisterForRemoteNotificationsWithDeviceToken: (NSData*) deviceToken
+- (void)                                 application: (UIApplication*) application
+    didRegisterForRemoteNotificationsWithDeviceToken: (NSData*) deviceToken
 {
     ignoreUnused (application);
 
@@ -230,7 +234,8 @@ namespace juce
     }
 }
 
-- (void) application: (UIApplication*) application didFailToRegisterForRemoteNotificationsWithError: (NSError*) error
+- (void)                                 application: (UIApplication*) application
+    didFailToRegisterForRemoteNotificationsWithError: (NSError*) error
 {
     ignoreUnused (application);
 
@@ -248,7 +253,8 @@ namespace juce
     }
 }
 
-- (void) application: (UIApplication*) application didReceiveRemoteNotification: (NSDictionary*) userInfo
+- (void)             application: (UIApplication*) application
+    didReceiveRemoteNotification: (NSDictionary*) userInfo
 {
     ignoreUnused (application);
 
@@ -266,8 +272,9 @@ namespace juce
     }
 }
 
-- (void) application: (UIApplication*) application didReceiveRemoteNotification: (NSDictionary*) userInfo
-  fetchCompletionHandler: (void (^)(UIBackgroundFetchResult result)) completionHandler
+- (void)             application: (UIApplication*) application
+    didReceiveRemoteNotification: (NSDictionary*) userInfo
+          fetchCompletionHandler: (void (^)(UIBackgroundFetchResult result)) completionHandler
 {
     ignoreUnused (application);
 
@@ -286,9 +293,11 @@ namespace juce
     }
 }
 
-- (void) application: (UIApplication*) application handleActionWithIdentifier: (NSString*) identifier
-  forRemoteNotification: (NSDictionary*) userInfo withResponseInfo: (NSDictionary*) responseInfo
-  completionHandler: (void(^)()) completionHandler
+- (void)           application: (UIApplication*) application
+    handleActionWithIdentifier: (NSString*) identifier
+         forRemoteNotification: (NSDictionary*) userInfo
+              withResponseInfo: (NSDictionary*) responseInfo
+             completionHandler: (void(^)()) completionHandler
 {
     ignoreUnused (application);
 
@@ -309,7 +318,29 @@ namespace juce
     }
 }
 
-- (void) application: (UIApplication*) application didReceiveLocalNotification: (UILocalNotification*) notification
+JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
+
+- (void)                    application: (UIApplication*) application
+    didRegisterUserNotificationSettings: (UIUserNotificationSettings*) notificationSettings
+{
+    ignoreUnused (application);
+
+    SEL selector = @selector (application:didRegisterUserNotificationSettings:);
+
+    if (_pushNotificationsDelegate != nil && [_pushNotificationsDelegate respondsToSelector:selector])
+    {
+        NSInvocation* invocation = [NSInvocation invocationWithMethodSignature: [_pushNotificationsDelegate methodSignatureForSelector: selector]];
+        [invocation setSelector: selector];
+        [invocation setTarget: _pushNotificationsDelegate];
+        [invocation setArgument: &application atIndex: 2];
+        [invocation setArgument: &notificationSettings atIndex: 3];
+
+        [invocation invoke];
+    }
+}
+
+- (void)            application: (UIApplication*) application
+    didReceiveLocalNotification: (UILocalNotification*) notification
 {
     ignoreUnused (application);
 
@@ -320,15 +351,17 @@ namespace juce
         NSInvocation* invocation = [NSInvocation invocationWithMethodSignature: [_pushNotificationsDelegate methodSignatureForSelector: selector]];
         [invocation setSelector: selector];
         [invocation setTarget: _pushNotificationsDelegate];
-        [invocation setArgument: &application  atIndex:2];
-        [invocation setArgument: &notification atIndex:3];
+        [invocation setArgument: &application  atIndex: 2];
+        [invocation setArgument: &notification atIndex: 3];
 
         [invocation invoke];
     }
 }
 
-- (void) application: (UIApplication*) application handleActionWithIdentifier: (NSString*) identifier
-  forLocalNotification: (UILocalNotification*) notification completionHandler: (void(^)()) completionHandler
+- (void)           application: (UIApplication*) application
+    handleActionWithIdentifier: (NSString*) identifier
+          forLocalNotification: (UILocalNotification*) notification
+             completionHandler: (void(^)()) completionHandler
 {
     ignoreUnused (application);
 
@@ -348,9 +381,11 @@ namespace juce
     }
 }
 
-- (void) application: (UIApplication*) application handleActionWithIdentifier: (NSString*) identifier
-  forLocalNotification: (UILocalNotification*) notification withResponseInfo: (NSDictionary*) responseInfo
-  completionHandler: (void(^)()) completionHandler
+- (void)           application: (UIApplication*) application
+    handleActionWithIdentifier: (NSString*) identifier
+          forLocalNotification: (UILocalNotification*) notification
+              withResponseInfo: (NSDictionary*) responseInfo
+             completionHandler: (void(^)()) completionHandler
 {
     ignoreUnused (application);
 
@@ -371,9 +406,11 @@ namespace juce
     }
 }
 
-#if defined (__IPHONE_10_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
-- (void) userNotificationCenter: (UNUserNotificationCenter*) center willPresentNotification: (UNNotification*) notification
-         withCompletionHandler: (void (^)(UNNotificationPresentationOptions options)) completionHandler
+JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+
+- (void) userNotificationCenter: (UNUserNotificationCenter*) center
+        willPresentNotification: (UNNotification*) notification
+          withCompletionHandler: (void (^)(UNNotificationPresentationOptions options)) completionHandler
 {
     ignoreUnused (center);
 
@@ -392,8 +429,9 @@ namespace juce
     }
 }
 
-- (void) userNotificationCenter: (UNUserNotificationCenter*) center didReceiveNotificationResponse: (UNNotificationResponse*) response
-         withCompletionHandler: (void(^)()) completionHandler
+- (void) userNotificationCenter: (UNUserNotificationCenter*) center
+ didReceiveNotificationResponse: (UNNotificationResponse*) response
+          withCompletionHandler: (void(^)()) completionHandler
 {
     ignoreUnused (center);
 
@@ -411,7 +449,6 @@ namespace juce
         [invocation invoke];
     }
 }
-#endif
 #endif
 
 @end
@@ -431,183 +468,6 @@ int juce_iOSMain (int argc, const char* argv[], void* customDelegatePtr)
 void LookAndFeel::playAlertSound()
 {
     // TODO
-}
-
-//==============================================================================
-class iOSMessageBox
-{
-public:
-    iOSMessageBox (const MessageBoxOptions& opts, std::unique_ptr<ModalComponentManager::Callback>&& cb)
-        : callback (std::move (cb))
-    {
-        if (currentlyFocusedPeer != nullptr)
-        {
-            UIAlertController* alert = [UIAlertController alertControllerWithTitle: juceStringToNS (opts.getTitle())
-                                                                           message: juceStringToNS (opts.getMessage())
-                                                                    preferredStyle: UIAlertControllerStyleAlert];
-
-            addButton (alert, opts.getButtonText (0));
-            addButton (alert, opts.getButtonText (1));
-            addButton (alert, opts.getButtonText (2));
-
-            [currentlyFocusedPeer->controller presentViewController: alert
-                                                           animated: YES
-                                                         completion: nil];
-        }
-        else
-        {
-            // Since iOS8, alert windows need to be associated with a window, so you need to
-            // have at least one window on screen when you use this
-            jassertfalse;
-        }
-    }
-
-    int getResult()
-    {
-        jassert (callback == nullptr);
-
-        JUCE_AUTORELEASEPOOL
-        {
-            while (result < 0)
-                [[NSRunLoop mainRunLoop] runUntilDate: [NSDate dateWithTimeIntervalSinceNow: 0.01]];
-        }
-
-        return result;
-    }
-
-    void buttonClicked (int buttonIndex) noexcept
-    {
-        if (callback != nullptr)
-            callback->modalStateFinished (buttonIndex);
-
-        delete this;
-    }
-
-private:
-    void addButton (UIAlertController* alert, const String& text)
-    {
-        if (! text.isEmpty())
-        {
-            const auto index = [[alert actions] count];
-
-            [alert addAction: [UIAlertAction actionWithTitle: juceStringToNS (text)
-                                                       style: UIAlertActionStyleDefault
-                                                     handler: ^(UIAlertAction*) { this->buttonClicked ((int) index); }]];
-        }
-    }
-
-    int result = -1;
-    std::unique_ptr<ModalComponentManager::Callback> callback;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (iOSMessageBox)
-};
-
-//==============================================================================
-static int showDialog (const MessageBoxOptions& options,
-                       std::unique_ptr<ModalComponentManager::Callback> callback,
-                       Async async)
-{
-   #if JUCE_MODAL_LOOPS_PERMITTED
-    if (async == Async::no)
-    {
-        JUCE_AUTORELEASEPOOL
-        {
-            iOSMessageBox messageBox (options, std::move (callback));
-            return messageBox.getResult();
-        }
-    }
-   #endif
-
-    ignoreUnused (async);
-
-    new iOSMessageBox (options, std::move (callback));
-    return 0;
-}
-
-#if JUCE_MODAL_LOOPS_PERMITTED
-void JUCE_CALLTYPE NativeMessageBox::showMessageBox (MessageBoxIconType /*iconType*/,
-                                                     const String& title, const String& message,
-                                                     Component* /*associatedComponent*/)
-{
-    showDialog (MessageBoxOptions()
-                  .withTitle (title)
-                  .withMessage (message)
-                  .withButton (TRANS("OK")),
-                nullptr, Async::no);
-}
-
-int JUCE_CALLTYPE NativeMessageBox::show (const MessageBoxOptions& options)
-{
-    return showDialog (options, nullptr, Async::no);
-}
-#endif
-
-void JUCE_CALLTYPE NativeMessageBox::showMessageBoxAsync (MessageBoxIconType /*iconType*/,
-                                                          const String& title, const String& message,
-                                                          Component* /*associatedComponent*/,
-                                                          ModalComponentManager::Callback* callback)
-{
-    showDialog (MessageBoxOptions()
-                  .withTitle (title)
-                  .withMessage (message)
-                  .withButton (TRANS("OK")),
-                rawToUniquePtr (AlertWindowMappings::getWrappedCallback (callback, AlertWindowMappings::messageBox)),
-                Async::yes);
-}
-
-bool JUCE_CALLTYPE NativeMessageBox::showOkCancelBox (MessageBoxIconType /*iconType*/,
-                                                      const String& title, const String& message,
-                                                      Component* /*associatedComponent*/,
-                                                      ModalComponentManager::Callback* callback)
-{
-    return showDialog (MessageBoxOptions()
-                         .withTitle (title)
-                         .withMessage (message)
-                         .withButton (TRANS("OK"))
-                         .withButton (TRANS("Cancel")),
-                       rawToUniquePtr (AlertWindowMappings::getWrappedCallback (callback, AlertWindowMappings::okCancel)),
-                       callback != nullptr ? Async::yes : Async::no) == 1;
-}
-
-int JUCE_CALLTYPE NativeMessageBox::showYesNoCancelBox (MessageBoxIconType /*iconType*/,
-                                                        const String& title, const String& message,
-                                                        Component* /*associatedComponent*/,
-                                                        ModalComponentManager::Callback* callback)
-{
-    return showDialog (MessageBoxOptions()
-                         .withTitle (title)
-                         .withMessage (message)
-                         .withButton (TRANS("Yes"))
-                         .withButton (TRANS("No"))
-                         .withButton (TRANS("Cancel")),
-                       rawToUniquePtr (AlertWindowMappings::getWrappedCallback (callback, AlertWindowMappings::yesNoCancel)),
-                       callback != nullptr ? Async::yes : Async::no);
-}
-
-int JUCE_CALLTYPE NativeMessageBox::showYesNoBox (MessageBoxIconType /*iconType*/,
-                                                  const String& title, const String& message,
-                                                  Component* /*associatedComponent*/,
-                                                  ModalComponentManager::Callback* callback)
-{
-    return showDialog (MessageBoxOptions()
-                         .withTitle (title)
-                         .withMessage (message)
-                         .withButton (TRANS("Yes"))
-                         .withButton (TRANS("No")),
-                       rawToUniquePtr (AlertWindowMappings::getWrappedCallback (callback, AlertWindowMappings::okCancel)),
-                       callback != nullptr ? Async::yes : Async::no);
-}
-
-void JUCE_CALLTYPE NativeMessageBox::showAsync (const MessageBoxOptions& options,
-                                                ModalComponentManager::Callback* callback)
-{
-    showDialog (options, rawToUniquePtr (callback), Async::yes);
-}
-
-void JUCE_CALLTYPE NativeMessageBox::showAsync (const MessageBoxOptions& options,
-                                                std::function<void (int)> callback)
-{
-    showAsync (options, ModalCallbackFunction::create (callback));
 }
 
 //==============================================================================
@@ -639,15 +499,15 @@ bool Desktop::isScreenSaverEnabled()
 }
 
 //==============================================================================
-bool juce_areThereAnyAlwaysOnTopWindows()
+bool detail::WindowingHelpers::areThereAnyAlwaysOnTopWindows()
 {
     return false;
 }
 
 //==============================================================================
-Image juce_createIconForFile (const File&)
+Image detail::WindowingHelpers::createIconForFile (const File&)
 {
-    return Image();
+    return {};
 }
 
 //==============================================================================
@@ -659,17 +519,17 @@ void SystemClipboard::copyTextToClipboard (const String& text)
 
 String SystemClipboard::getTextFromClipboard()
 {
-    return nsStringToJuce ([[UIPasteboard generalPasteboard] valueForPasteboardType: @"public.text"]);
+    return nsStringToJuce ([[UIPasteboard generalPasteboard] string]);
 }
 
 //==============================================================================
-bool MouseInputSource::SourceList::addSource()
+bool detail::MouseInputSourceList::addSource()
 {
     addSource (sources.size(), MouseInputSource::InputSourceType::touch);
     return true;
 }
 
-bool MouseInputSource::SourceList::canUseTouch()
+bool detail::MouseInputSourceList::canUseTouch() const
 {
     return true;
 }
@@ -679,6 +539,50 @@ bool Desktop::canUseSemiTransparentWindows() noexcept
     return true;
 }
 
+bool Desktop::isDarkModeActive() const
+{
+    if (@available (iOS 12.0, *))
+        return [[[UIScreen mainScreen] traitCollection] userInterfaceStyle] == UIUserInterfaceStyleDark;
+
+    return false;
+}
+
+JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wundeclared-selector")
+static const auto darkModeSelector = @selector (darkModeChanged:);
+JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+
+class Desktop::NativeDarkModeChangeDetectorImpl
+{
+public:
+    NativeDarkModeChangeDetectorImpl()
+    {
+        static DelegateClass delegateClass;
+        delegate.reset ([delegateClass.createInstance() init]);
+        observer.emplace (delegate.get(), darkModeSelector, UIViewComponentPeer::getDarkModeNotificationName(), nil);
+    }
+
+private:
+    struct DelegateClass  : public ObjCClass<NSObject>
+    {
+        DelegateClass()  : ObjCClass<NSObject> ("JUCEDelegate_")
+        {
+            addMethod (darkModeSelector, [] (id, SEL, NSNotification*) { Desktop::getInstance().darkModeChanged(); });
+            registerClass();
+        }
+    };
+
+    NSUniquePtr<NSObject> delegate;
+    Optional<ScopedNotificationCenterObserver> observer;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NativeDarkModeChangeDetectorImpl)
+};
+
+std::unique_ptr<Desktop::NativeDarkModeChangeDetectorImpl> Desktop::createNativeDarkModeChangeDetectorImpl()
+{
+    return std::make_unique<NativeDarkModeChangeDetectorImpl>();
+}
+
+//==============================================================================
 Point<float> MouseInputSource::getCurrentRawMousePosition()
 {
     return juce_lastMousePos;
@@ -701,6 +605,24 @@ Desktop::DisplayOrientation Desktop::getCurrentOrientation() const
     return Orientations::convertToJuce (orientation);
 }
 
+template <typename Value>
+static BorderSize<Value> operator/ (BorderSize<Value> border, Value scale)
+{
+    return { border.getTop()    / scale,
+             border.getLeft()   / scale,
+             border.getBottom() / scale,
+             border.getRight()  / scale };
+}
+
+template <typename Value>
+static BorderSize<int> roundToInt (BorderSize<Value> border)
+{
+    return { roundToInt (border.getTop()),
+             roundToInt (border.getLeft()),
+             roundToInt (border.getBottom()),
+             roundToInt (border.getRight()) };
+}
+
 // The most straightforward way of retrieving the screen area available to an iOS app
 // seems to be to create a new window (which will take up all available space) and to
 // query its frame.
@@ -717,31 +639,120 @@ static Rectangle<int> getRecommendedWindowBounds()
 
 static BorderSize<int> getSafeAreaInsets (float masterScale)
 {
-   #if defined (__IPHONE_11_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_11_0
-    UIEdgeInsets safeInsets = TemporaryWindow().window.safeAreaInsets;
+    if (@available (iOS 11.0, *))
+    {
+        UIEdgeInsets safeInsets = TemporaryWindow().window.safeAreaInsets;
+        return roundToInt (BorderSize<double> { safeInsets.top,
+                                                safeInsets.left,
+                                                safeInsets.bottom,
+                                                safeInsets.right } / (double) masterScale);
+    }
 
-    auto getInset = [&] (CGFloat original) { return roundToInt (original / masterScale); };
-
-    return { getInset (safeInsets.top),    getInset (safeInsets.left),
-             getInset (safeInsets.bottom), getInset (safeInsets.right) };
-   #else
+    JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
     auto statusBarSize = [UIApplication sharedApplication].statusBarFrame.size;
+    JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+
     auto statusBarHeight = jmin (statusBarSize.width, statusBarSize.height);
 
     return { roundToInt (statusBarHeight / masterScale), 0, 0, 0 };
-   #endif
 }
 
+//==============================================================================
 void Displays::findDisplays (float masterScale)
 {
+    JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wundeclared-selector")
+    static const auto keyboardShownSelector  = @selector (juceKeyboardShown:);
+    static const auto keyboardHiddenSelector = @selector (juceKeyboardHidden:);
+    JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+
+    class OnScreenKeyboardChangeDetectorImpl
+    {
+    public:
+        OnScreenKeyboardChangeDetectorImpl()
+        {
+            static DelegateClass delegateClass;
+            delegate.reset ([delegateClass.createInstance() init]);
+            object_setInstanceVariable (delegate.get(), "owner", this);
+            observers.emplace_back (delegate.get(), keyboardShownSelector,  UIKeyboardDidShowNotification, nil);
+            observers.emplace_back (delegate.get(), keyboardHiddenSelector, UIKeyboardDidHideNotification, nil);
+        }
+
+        auto getInsets() const { return insets; }
+
+    private:
+        struct DelegateClass : public ObjCClass<NSObject>
+        {
+            DelegateClass() : ObjCClass<NSObject> ("JUCEOnScreenKeyboardObserver_")
+            {
+                addIvar<OnScreenKeyboardChangeDetectorImpl*> ("owner");
+
+                addMethod (keyboardShownSelector, [] (id self, SEL, NSNotification* notification)
+                {
+                    setKeyboardScreenBounds (self, [&]() -> BorderSize<double>
+                    {
+                        auto* info = [notification userInfo];
+
+                        if (info == nullptr)
+                            return {};
+
+                        auto* value = static_cast<NSValue*> ([info objectForKey: UIKeyboardFrameEndUserInfoKey]);
+
+                        if (value == nullptr)
+                            return {};
+
+                        auto* display = Desktop::getInstance().getDisplays().getPrimaryDisplay();
+
+                        if (display == nullptr)
+                            return {};
+
+                        const auto rect = convertToRectInt ([value CGRectValue]);
+
+                        BorderSize<double> result;
+
+                        if (rect.getY() == display->totalArea.getY())
+                            result.setTop (rect.getHeight());
+
+                        if (rect.getBottom() == display->totalArea.getBottom())
+                            result.setBottom (rect.getHeight());
+
+                        return result;
+                    }());
+                });
+
+                addMethod (keyboardHiddenSelector, [] (id self, SEL, NSNotification*)
+                {
+                    setKeyboardScreenBounds (self, {});
+                });
+
+                registerClass();
+            }
+
+        private:
+            static void setKeyboardScreenBounds (id self, BorderSize<double> insets)
+            {
+                if (std::exchange (getIvar<OnScreenKeyboardChangeDetectorImpl*> (self, "owner")->insets, insets) != insets)
+                    Desktop::getInstance().displays->refresh();
+            }
+        };
+
+        BorderSize<double> insets;
+        NSUniquePtr<NSObject> delegate;
+        std::vector<ScopedNotificationCenterObserver> observers;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OnScreenKeyboardChangeDetectorImpl)
+    };
+
     JUCE_AUTORELEASEPOOL
     {
+        static OnScreenKeyboardChangeDetectorImpl keyboardChangeDetector;
+
         UIScreen* s = [UIScreen mainScreen];
 
         Display d;
         d.totalArea = convertToRectInt ([s bounds]) / masterScale;
         d.userArea = getRecommendedWindowBounds() / masterScale;
         d.safeAreaInsets = getSafeAreaInsets (masterScale);
+        d.keyboardInsets = roundToInt (keyboardChangeDetector.getInsets() / (double) masterScale);
         d.isMain = true;
         d.scale = masterScale * s.scale;
         d.dpi = 160 * d.scale;

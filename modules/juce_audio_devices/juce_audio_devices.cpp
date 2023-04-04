@@ -2,7 +2,7 @@
   ==============================================================================
 
    This file is part of the JUCE library.
-   Copyright (c) 2020 - Raw Material Software Limited
+   Copyright (c) 2022 - Raw Material Software Limited
 
    JUCE is an open source library subject to commercial or open-source
    licensing.
@@ -45,8 +45,12 @@
 
 #include "juce_audio_devices.h"
 
+#include "audio_io/juce_SampleRateHelpers.cpp"
+#include "midi_io/juce_MidiDevices.cpp"
+
 //==============================================================================
 #if JUCE_MAC || JUCE_IOS
+ #include <juce_audio_basics/midi/juce_MidiDataConcatenator.h>
  #include <juce_audio_basics/midi/ump/juce_UMP.h>
  #include "midi_io/ump/juce_UMPBytestreamInputHandler.h"
  #include "midi_io/ump/juce_UMPU32InputHandler.h"
@@ -148,7 +152,9 @@
      If you don't have the ALSA library and don't want to build JUCE with audio support,
      just set the JUCE_ALSA flag to 0.
   */
+  JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wzero-length-array")
   #include <alsa/asoundlib.h>
+  JUCE_END_IGNORE_WARNINGS_GCC_LIKE
   #include "native/juce_linux_ALSA.cpp"
  #endif
 
@@ -186,7 +192,13 @@
 //==============================================================================
 #elif JUCE_ANDROID
 
- #include "native/juce_android_Audio.cpp"
+namespace juce
+{
+    using RealtimeThreadFactory = pthread_t (*) (void* (*) (void*), void*);
+    RealtimeThreadFactory getAndroidRealtimeThreadFactory();
+} // namespace juce
+
+#include "native/juce_android_Audio.cpp"
 
  #include <juce_audio_basics/midi/juce_MidiDataConcatenator.h>
  #include "native/juce_android_Midi.cpp"
@@ -216,6 +228,12 @@
 
    #include "native/juce_android_Oboe.cpp"
   #endif
+ #else
+// No audio library, so no way to create realtime threads.
+  namespace juce
+  {
+      RealtimeThreadFactory getAndroidRealtimeThreadFactory() { return nullptr; }
+  }
  #endif
 
 #endif
@@ -235,6 +253,5 @@ namespace juce
 #include "audio_io/juce_AudioIODevice.cpp"
 #include "audio_io/juce_AudioIODeviceType.cpp"
 #include "midi_io/juce_MidiMessageCollector.cpp"
-#include "midi_io/juce_MidiDevices.cpp"
 #include "sources/juce_AudioSourcePlayer.cpp"
 #include "sources/juce_AudioTransportSource.cpp"

@@ -2,15 +2,15 @@
   ==============================================================================
 
    This file is part of the JUCE library.
-   Copyright (c) 2020 - Raw Material Software Limited
+   Copyright (c) 2022 - Raw Material Software Limited
 
    JUCE is an open source library subject to commercial or open-source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 6 End-User License
-   Agreement and JUCE Privacy Policy (both effective as of the 16th June 2020).
+   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
+   Agreement and JUCE Privacy Policy.
 
-   End User License Agreement: www.juce.com/juce-6-licence
+   End User License Agreement: www.juce.com/juce-7-licence
    Privacy Policy: www.juce.com/juce-privacy-policy
 
    Or: You may also use this code under the terms of the GPL v3 (see
@@ -36,11 +36,11 @@ public:
                    void* contextToShare,
                    bool shouldUseMultisampling,
                    OpenGLVersion version)
+        : owner (component)
     {
-        NSOpenGLPixelFormatAttribute attribs[64] = { 0 };
-        createAttribs (attribs, version, pixFormat, shouldUseMultisampling);
+        const auto attribs = createAttribs (version, pixFormat, shouldUseMultisampling);
 
-        NSOpenGLPixelFormat* format = [[NSOpenGLPixelFormat alloc] initWithAttributes: attribs];
+        NSOpenGLPixelFormat* format = [[NSOpenGLPixelFormat alloc] initWithAttributes: attribs.data()];
 
         static MouseForwardingNSOpenGLViewClass cls;
         view = [cls.createInstance() initWithFrame: NSMakeRect (0, 0, 100.0f, 100.0f)
@@ -74,46 +74,55 @@ public:
         [view release];
     }
 
-    static void createAttribs (NSOpenGLPixelFormatAttribute* attribs, OpenGLVersion version,
-                               const OpenGLPixelFormat& pixFormat, bool shouldUseMultisampling)
+    static std::vector<NSOpenGLPixelFormatAttribute> createAttribs (OpenGLVersion version,
+                                                                    const OpenGLPixelFormat& pixFormat,
+                                                                    bool shouldUseMultisampling)
     {
-        ignoreUnused (version);
-        int numAttribs = 0;
+        std::vector<NSOpenGLPixelFormatAttribute> attribs
+        {
+            NSOpenGLPFAOpenGLProfile, [version]
+            {
+                if (version == openGL3_2)
+                    return NSOpenGLProfileVersion3_2Core;
 
-        attribs[numAttribs++] = NSOpenGLPFAOpenGLProfile;
-        attribs[numAttribs++] = version >= openGL3_2 ? NSOpenGLProfileVersion3_2Core
-                                                     : NSOpenGLProfileVersionLegacy;
+                if (version != defaultGLVersion)
+                    if (@available (macOS 10.10, *))
+                        return NSOpenGLProfileVersion4_1Core;
 
-        attribs[numAttribs++] = NSOpenGLPFADoubleBuffer;
-        attribs[numAttribs++] = NSOpenGLPFAClosestPolicy;
-        attribs[numAttribs++] = NSOpenGLPFANoRecovery;
-        attribs[numAttribs++] = NSOpenGLPFAColorSize;
-        attribs[numAttribs++] = (NSOpenGLPixelFormatAttribute) (pixFormat.redBits + pixFormat.greenBits + pixFormat.blueBits);
-        attribs[numAttribs++] = NSOpenGLPFAAlphaSize;
-        attribs[numAttribs++] = (NSOpenGLPixelFormatAttribute) pixFormat.alphaBits;
-        attribs[numAttribs++] = NSOpenGLPFADepthSize;
-        attribs[numAttribs++] = (NSOpenGLPixelFormatAttribute) pixFormat.depthBufferBits;
-        attribs[numAttribs++] = NSOpenGLPFAStencilSize;
-        attribs[numAttribs++] = (NSOpenGLPixelFormatAttribute) pixFormat.stencilBufferBits;
-        attribs[numAttribs++] = NSOpenGLPFAAccumSize;
-        attribs[numAttribs++] = (NSOpenGLPixelFormatAttribute) (pixFormat.accumulationBufferRedBits + pixFormat.accumulationBufferGreenBits
-                                                                   + pixFormat.accumulationBufferBlueBits + pixFormat.accumulationBufferAlphaBits);
+                return NSOpenGLProfileVersionLegacy;
+            }(),
+            NSOpenGLPFADoubleBuffer,
+            NSOpenGLPFAClosestPolicy,
+            NSOpenGLPFANoRecovery,
+            NSOpenGLPFAColorSize,   static_cast<NSOpenGLPixelFormatAttribute> (pixFormat.redBits + pixFormat.greenBits + pixFormat.blueBits),
+            NSOpenGLPFAAlphaSize,   static_cast<NSOpenGLPixelFormatAttribute> (pixFormat.alphaBits),
+            NSOpenGLPFADepthSize,   static_cast<NSOpenGLPixelFormatAttribute> (pixFormat.depthBufferBits),
+            NSOpenGLPFAStencilSize, static_cast<NSOpenGLPixelFormatAttribute> (pixFormat.stencilBufferBits),
+            NSOpenGLPFAAccumSize,   static_cast<NSOpenGLPixelFormatAttribute> (pixFormat.accumulationBufferRedBits  + pixFormat.accumulationBufferGreenBits
+                                                                             + pixFormat.accumulationBufferBlueBits + pixFormat.accumulationBufferAlphaBits)
+        };
 
         if (shouldUseMultisampling)
         {
-            attribs[numAttribs++] = NSOpenGLPFAMultisample;
-            attribs[numAttribs++] = NSOpenGLPFASampleBuffers;
-            attribs[numAttribs++] = (NSOpenGLPixelFormatAttribute) 1;
-            attribs[numAttribs++] = NSOpenGLPFASamples;
-            attribs[numAttribs++] = (NSOpenGLPixelFormatAttribute) pixFormat.multisamplingLevel;
+            attribs.insert (attribs.cend(),
+            {
+                NSOpenGLPFAMultisample,
+                NSOpenGLPFASampleBuffers,   static_cast<NSOpenGLPixelFormatAttribute> (1),
+                NSOpenGLPFASamples,         static_cast<NSOpenGLPixelFormatAttribute> (pixFormat.multisamplingLevel)
+            });
         }
+
+        attribs.push_back (0);
+
+        return attribs;
     }
 
-    bool initialiseOnRenderThread (OpenGLContext&)    { return true; }
-    void shutdownOnRenderThread()                     { deactivateCurrentContext(); }
+    InitResult initialiseOnRenderThread (OpenGLContext&)  { return InitResult::success; }
+    void shutdownOnRenderThread()                         { deactivateCurrentContext(); }
 
     bool createdOk() const noexcept                   { return getRawContext() != nullptr; }
-    void* getRawContext() const noexcept              { return static_cast<void*> (renderContext); }
+    NSOpenGLView* getNSView() const noexcept          { return view; }
+    NSOpenGLContext* getRawContext() const noexcept   { return renderContext; }
     GLuint getFrameBufferID() const noexcept          { return 0; }
 
     bool makeActive() const noexcept
@@ -163,7 +172,7 @@ public:
         auto now = Time::getMillisecondCounterHiRes();
         [renderContext flushBuffer];
 
-        if (minSwapTimeMs > 0)
+        if (const auto minSwapTime = minSwapTimeMs.get(); minSwapTime > 0)
         {
             // When our window is entirely occluded by other windows, flushBuffer
             // fails to wait for the swap interval, so the render loop spins at full
@@ -173,11 +182,11 @@ public:
             auto swapTime = Time::getMillisecondCounterHiRes() - now;
             auto frameTime = (int) (now - lastSwapTime);
 
-            if (swapTime < 0.5 && frameTime < minSwapTimeMs - 3)
+            if (swapTime < 0.5 && frameTime < minSwapTime - 3)
             {
                 if (underrunCounter > 3)
                 {
-                    Thread::sleep (2 * (minSwapTimeMs - frameTime));
+                    Thread::sleep (2 * (minSwapTime - frameTime));
                     now = Time::getMillisecondCounterHiRes();
                 }
                 else
@@ -195,22 +204,28 @@ public:
         lastSwapTime = now;
     }
 
-    void updateWindowPosition (Rectangle<int>) {}
+    void updateWindowPosition (Rectangle<int>)
+    {
+        if (auto* peer = owner.getTopLevelComponent()->getPeer())
+        {
+            const auto newArea = peer->getAreaCoveredBy (owner);
 
-    bool setSwapInterval (int numFramesPerSwap)
+            if (convertToRectInt ([view frame]) != newArea)
+                [view setFrame: makeNSRect (newArea)];
+        }
+    }
+
+    bool setSwapInterval (int numFramesPerSwapIn)
     {
         // The macOS OpenGL programming guide says that numFramesPerSwap
         // can only be 0 or 1.
-        jassert (isPositiveAndBelow (numFramesPerSwap, 2));
+        jassert (isPositiveAndBelow (numFramesPerSwapIn, 2));
 
-        minSwapTimeMs = (numFramesPerSwap * 1000) / 60;
+        [renderContext setValues: (const GLint*) &numFramesPerSwapIn
+                    forParameter: getSwapIntervalParameter()];
 
-        [renderContext setValues: (const GLint*) &numFramesPerSwap
-                   #if defined (MAC_OS_X_VERSION_10_12) && MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_12
-                    forParameter: NSOpenGLContextParameterSwapInterval];
-                   #else
-                    forParameter: NSOpenGLCPSwapInterval];
-                   #endif
+        minSwapTimeMs.setFramesPerSwap (numFramesPerSwapIn);
+
         return true;
     }
 
@@ -218,39 +233,80 @@ public:
     {
         GLint numFrames = 0;
         [renderContext getValues: &numFrames
-                   #if defined (MAC_OS_X_VERSION_10_12) && MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_12
-                    forParameter: NSOpenGLContextParameterSwapInterval];
-                   #else
-                    forParameter: NSOpenGLCPSwapInterval];
-                   #endif
+                    forParameter: getSwapIntervalParameter()];
 
         return numFrames;
     }
 
+    void setNominalVideoRefreshPeriodS (double periodS)
+    {
+        jassert (periodS > 0.0);
+        minSwapTimeMs.setVideoRefreshPeriodS (periodS);
+    }
+
+    static NSOpenGLContextParameter getSwapIntervalParameter()
+    {
+        if (@available (macOS 10.12, *))
+            return NSOpenGLContextParameterSwapInterval;
+
+        return NSOpenGLCPSwapInterval;
+    }
+
+    class MinSwapTimeMs
+    {
+    public:
+        int get() const
+        {
+            return minSwapTimeMs;
+        }
+
+        void setFramesPerSwap (int n)
+        {
+            const std::scoped_lock lock { mutex };
+            numFramesPerSwap = n;
+            updateMinSwapTime();
+        }
+
+        void setVideoRefreshPeriodS (double n)
+        {
+            const std::scoped_lock lock { mutex };
+            videoRefreshPeriodS = n;
+            updateMinSwapTime();
+        }
+
+    private:
+        void updateMinSwapTime()
+        {
+            minSwapTimeMs = static_cast<int> (numFramesPerSwap * 1000 * videoRefreshPeriodS);
+        }
+
+        std::mutex mutex;
+        std::atomic<int> minSwapTimeMs { 0 };
+        int numFramesPerSwap = 0;
+        double videoRefreshPeriodS = 1.0 / 60.0;
+    };
+
+    Component& owner;
     NSOpenGLContext* renderContext = nil;
     NSOpenGLView* view = nil;
     ReferenceCountedObjectPtr<ReferenceCountedObject> viewAttachment;
     double lastSwapTime = 0;
-    int minSwapTimeMs = 0, underrunCounter = 0;
+    int underrunCounter = 0;
+    MinSwapTimeMs minSwapTimeMs;
 
     //==============================================================================
     struct MouseForwardingNSOpenGLViewClass  : public ObjCClass<NSOpenGLView>
     {
-        MouseForwardingNSOpenGLViewClass()  : ObjCClass<NSOpenGLView> ("JUCEGLView_")
+        MouseForwardingNSOpenGLViewClass()  : ObjCClass ("JUCEGLView_")
         {
-            addMethod (@selector (rightMouseDown:),      rightMouseDown,     "v@:@");
-            addMethod (@selector (rightMouseUp:),        rightMouseUp,       "v@:@");
-            addMethod (@selector (acceptsFirstMouse:),   acceptsFirstMouse,  "v@:@");
+            addMethod (@selector (rightMouseDown:),       [] (id self, SEL, NSEvent* ev)     { [[(NSOpenGLView*) self superview] rightMouseDown: ev]; });
+            addMethod (@selector (rightMouseUp:),         [] (id self, SEL, NSEvent* ev)     { [[(NSOpenGLView*) self superview] rightMouseUp:   ev]; });
+            addMethod (@selector (acceptsFirstMouse:),    [] (id, SEL, NSEvent*) -> BOOL     { return YES; });
+            addMethod (@selector (accessibilityHitTest:), [] (id self, SEL, NSPoint p) -> id { return [[(NSOpenGLView*) self superview] accessibilityHitTest: p]; });
 
             registerClass();
         }
-
-    private:
-        static void rightMouseDown (id self, SEL, NSEvent* ev)      { [[(NSOpenGLView*) self superview] rightMouseDown: ev]; }
-        static void rightMouseUp   (id self, SEL, NSEvent* ev)      { [[(NSOpenGLView*) self superview] rightMouseUp:   ev]; }
-        static BOOL acceptsFirstMouse (id, SEL, NSEvent*)           { return YES; }
     };
-
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NativeContext)
 };
