@@ -73,6 +73,16 @@ class JUCE_API  ValueTree  final
     JUCE_PUBLIC_IN_DLL_BUILD (class SharedObject)
 
 public:
+
+	struct SetTreePropertyAction
+	{
+        virtual juce::String getPropertyName() = 0;
+        virtual var getPreviousValue() = 0;
+        virtual var getCurrentValue() = 0;
+        virtual juce::Identifier getTreeType() = 0;
+        virtual ValueTree getTree() = 0;
+	};
+	
     //==============================================================================
     /** Creates an empty, invalid ValueTree.
 
