@@ -2014,6 +2014,14 @@ PopupMenu::Options PopupMenu::Options::withTargetComponent (Component& comp) con
     return withTargetComponent (&comp);
 }
 
+PopupMenu::Options PopupMenu::Options::withTargetComponentTranslated (Component* comp, int xDelta, int yDelta) const
+{
+    auto o = with (*this, &Options::targetComponent, comp);
+    if (comp != nullptr)
+        o.targetArea = comp->getScreenBounds().translated(xDelta, yDelta);
+    return o;
+}
+
 PopupMenu::Options PopupMenu::Options::withTargetScreenArea (Rectangle<int> area) const
 {
     return with (*this, &Options::targetArea, area);

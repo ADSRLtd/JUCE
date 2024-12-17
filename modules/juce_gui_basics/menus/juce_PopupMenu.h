@@ -494,6 +494,7 @@ public:
         */
         [[nodiscard]] Options withTargetComponent (Component* targetComponent) const;
         [[nodiscard]] Options withTargetComponent (Component& targetComponent) const;
+        [[nodiscard]] Options withTargetComponentTranslated (Component* targetComponent, int xDelta, int yDelta) const;
 
         /** Sets the region of the screen next to which the menu should be displayed.
 

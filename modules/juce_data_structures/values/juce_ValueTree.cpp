@@ -97,8 +97,11 @@ public:
     template <typename Function>
     void callListenersForAllParents (ValueTree::Listener* listenerToExclude, Function fn) const
     {
-        for (auto* t = this; t != nullptr; t = t->parent)
-            t->callListeners (listenerToExclude, fn);
+        if(notifyListeners.load())
+        {
+            for (auto* t = this; t != nullptr; t = t->parent)
+                t->callListeners (listenerToExclude, fn);
+        }
     }
 
     void sendPropertyChangeMessage (const Identifier& property, ValueTree::Listener* listenerToExclude = nullptr)
@@ -123,6 +126,12 @@ public:
     {
         ValueTree tree (*this);
         callListenersForAllParents (nullptr, [=, &tree] (Listener& l) { l.valueTreeChildOrderChanged (tree, oldIndex, newIndex); });
+    }
+
+    void sendStructureChangeMessage()
+    {
+        ValueTree tree(*this);
+        callListenersForAllParents(nullptr, [&](Listener& l) { l.valueTreeStructureChanged(tree); });
     }
 
     void sendParentChangeMessage()
@@ -415,7 +424,7 @@ public:
     }
 
     //==============================================================================
-    struct SetPropertyAction final : public UndoableAction
+    struct SetPropertyAction final : public UndoableAction, public ValueTree::SetTreePropertyAction
     {
         SetPropertyAction (Ptr targetObject, const Identifier& propertyName,
                            const var& newVal, const var& oldVal, bool isAdding, bool isDeleting,
@@ -425,6 +434,48 @@ public:
               isAddingNewProperty (isAdding), isDeletingProperty (isDeleting),
               excludeListener (listenerToExclude)
         {
+        }
+
+        juce::StringArray getPropertyPath() override
+        {
+            juce::StringArray path;
+            ValueTree vt = ValueTree(target);
+            while(vt.getParent().isValid())
+            {
+                path.add(vt.getType().toString());
+                vt = vt.getParent();
+            }
+            return path;
+        }
+
+        bool isSameTargetAndProperty(const Ptr& otherTarget, const Identifier& otherName) const
+        {
+            return target == otherTarget && name == otherName;
+        }
+
+        juce::String getPropertyName() override
+        {
+            return name.toString();
+        }
+
+        var getPreviousValue() override
+        {
+            return oldValue;
+        }
+
+        var getCurrentValue() override
+        {
+            return newValue;
+        }
+
+        Identifier getTreeType() override
+        {
+            return target->type;
+        }
+
+        ValueTree getTree() override
+        {
+            return ValueTree(target);
         }
 
         bool perform() override
@@ -577,6 +628,8 @@ public:
     ReferenceCountedArray<SharedObject> children;
     SortedSet<ValueTree*> valueTreesWithListeners;
     SharedObject* parent = nullptr;
+
+    std::atomic<bool> notifyListeners { true };
 
     JUCE_LEAK_DETECTOR (SharedObject)
 };
@@ -998,6 +1051,24 @@ void ValueTree::sendPropertyChangeMessage (const Identifier& property)
         object->sendPropertyChangeMessage (property);
 }
 
+void ValueTree::disableNotifications()
+{
+    if (object != nullptr)
+        object->notifyListeners.store(false);
+}
+
+void ValueTree::enableNotifications()
+{
+    if (object != nullptr)
+        object->notifyListeners.store(true);
+}
+
+void ValueTree::sendStructureChangeMessage()
+{
+    if (object != nullptr)
+        object->sendStructureChangeMessage();
+}
+
 //==============================================================================
 std::unique_ptr<XmlElement> ValueTree::createXml() const
 {
@@ -1107,6 +1178,7 @@ void ValueTree::Listener::valueTreeChildRemoved      (ValueTree&, ValueTree&, in
 void ValueTree::Listener::valueTreeChildOrderChanged (ValueTree&, int, int)          {}
 void ValueTree::Listener::valueTreeParentChanged     (ValueTree&)                    {}
 void ValueTree::Listener::valueTreeRedirected        (ValueTree&)                    {}
+void ValueTree::Listener::valueTreeStructureChanged  (ValueTree&)                    {}
 
 //==============================================================================
 #if JUCE_ALLOW_STATIC_NULL_VARIABLES

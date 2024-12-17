@@ -84,6 +84,24 @@ void DirectoryContentsList::setDirectory (const File& directory,
     setTypeFlags (newFlags);
 }
 
+    void DirectoryContentsList::listVolumes()
+{
+#if JUCE_MAC
+    setDirectory(juce::File {"/Volumes"}, true, false);
+#else
+    clear();
+    juce::Array<juce::File> roots;
+    juce::File::findFileSystemRoots(roots);
+    root = juce::File {"VOLUMES://"};
+    for (const auto& volume : roots)
+    {
+        addFile(volume, true, 0, volume.getLastModificationTime(), volume.getCreationTime(), false);
+    }
+
+    sendChangeMessage();
+#endif
+}
+
 void DirectoryContentsList::setTypeFlags (const int newFlags)
 {
     if (fileTypeFlags != newFlags)

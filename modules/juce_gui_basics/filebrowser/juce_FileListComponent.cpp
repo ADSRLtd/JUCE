@@ -91,6 +91,13 @@ void FileListComponent::setSelectedFile (const File& f)
     fileWaitingToBeSelected = f;
 }
 
+void FileListComponent::setContentDirectory(const File& f, bool includeDirectories, bool includeFiles)
+{
+    //DBG(getTitle() + "::FLC::setContentDirectory " + f.getFullPathName());
+    currentSelectedFile = getSelectedFile();
+    lastDirectory = directoryContentsList.getDirectory();
+    directoryContentsList.setDirectory(f, includeDirectories, includeFiles);
+}
 //==============================================================================
 void FileListComponent::changeListenerCallback (ChangeBroadcaster*)
 {

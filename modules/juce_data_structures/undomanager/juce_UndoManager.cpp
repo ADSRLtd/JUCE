@@ -35,44 +35,6 @@
 namespace juce
 {
 
-struct UndoManager::ActionSet
-{
-    ActionSet (const String& transactionName)  : name (transactionName)
-    {}
-
-    bool perform() const
-    {
-        for (auto* a : actions)
-            if (! a->perform())
-                return false;
-
-        return true;
-    }
-
-    bool undo() const
-    {
-        for (int i = actions.size(); --i >= 0;)
-            if (! actions.getUnchecked (i)->undo())
-                return false;
-
-        return true;
-    }
-
-    int getTotalSize() const
-    {
-        int total = 0;
-
-        for (auto* a : actions)
-            total += a->getSizeInUnits();
-
-        return total;
-    }
-
-    OwnedArray<UndoableAction> actions;
-    String name;
-    Time time { Time::getCurrentTime() };
-};
-
 //==============================================================================
 UndoManager::UndoManager (int maxNumberOfUnitsToKeep, int minimumTransactions)
 {
@@ -243,9 +205,10 @@ String UndoManager::getCurrentTransactionName() const
 }
 
 //==============================================================================
-UndoManager::ActionSet* UndoManager::getCurrentSet() const     { return transactions[nextIndex - 1]; }
-UndoManager::ActionSet* UndoManager::getNextSet() const        { return transactions[nextIndex]; }
+ActionSet* UndoManager::getCurrentSet() const     { return transactions[nextIndex - 1]; }
+ActionSet* UndoManager::getNextSet() const        { return transactions[nextIndex]; }
 
+bool UndoManager::isCurrentTransaction(const ActionSet* transaction) const { return transaction == getCurrentSet(); }
 bool UndoManager::isPerformingUndoRedo() const  { return isInsideUndoRedoCall; }
 
 bool UndoManager::canUndo() const      { return getCurrentSet() != nullptr; }
@@ -373,6 +336,17 @@ int UndoManager::getNumActionsInCurrentTransaction() const
             return s->actions.size();
 
     return 0;
+}
+
+std::vector<ActionSet*> UndoManager::getTransactions() const
+{
+    std::vector<ActionSet*> allTransactions;
+
+    for(auto* actionSet : transactions)
+    {
+        allTransactions.push_back(actionSet);
+    }
+    return allTransactions;
 }
 
 } // namespace juce
