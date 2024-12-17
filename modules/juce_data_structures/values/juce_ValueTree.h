@@ -82,6 +82,16 @@ class JUCE_API  ValueTree  final
     JUCE_PUBLIC_IN_DLL_BUILD (class SharedObject)
 
 public:
+    struct SetTreePropertyAction
+    {
+        virtual juce::String getPropertyName() = 0;
+        virtual var getPreviousValue() = 0;
+        virtual var getCurrentValue() = 0;
+        virtual juce::Identifier getTreeType() = 0;
+        virtual ValueTree getTree() = 0;
+        virtual juce::StringArray getPropertyPath() = 0;
+    };
+
     //==============================================================================
     /** Creates an empty, invalid ValueTree.
 
@@ -544,6 +554,9 @@ public:
             will be made.
         */
         virtual void valueTreeRedirected (ValueTree& treeWhichHasBeenChanged);
+
+        /** This method is called when a tree has been re-structured */
+        virtual void valueTreeStructureChanged(ValueTree& treeWhichHasBeenChanged);
     };
 
     /** Adds a listener to receive callbacks when this tree is changed in some way.
@@ -576,6 +589,13 @@ public:
         calling any listeners that are registered.
     */
     void sendPropertyChangeMessage (const Identifier& property);
+
+    /** Disables all listener notifications */
+    void disableNotifications();
+    /** Enables all listener notifications */
+    void enableNotifications();
+    /* Notify listeners that the structure of the tree has changed */
+    void sendStructureChangeMessage();
 
     //==============================================================================
     /** This method uses a comparator object to sort the tree's children into order.
