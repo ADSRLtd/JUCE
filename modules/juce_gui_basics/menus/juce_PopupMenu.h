@@ -998,6 +998,12 @@ public:
                                                            int& idealHeight,
                                                            const Options&) = 0;
 
+        virtual void getIdealPopupMenuSectionHeaderSizeWithOptions (const String& text,
+                                                                    int standardMenuItemHeight,
+                                                                    int& idealWidth,
+                                                                    int& idealHeight,
+                                                                    const Options&) = 0;
+
         virtual int getMenuWindowFlags() = 0;
 
         virtual void drawMenuBarBackground (Graphics&, int width, int height,
