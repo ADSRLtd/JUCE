@@ -423,6 +423,9 @@ void Button::sendClickMessage (const ModifierKeys& modifiers)
 
     if (onClick != nullptr)
         onClick();
+
+    if (onClickWithMods != nullptr)
+        onClickWithMods (modifiers);
 }
 
 void Button::sendStateMessage()

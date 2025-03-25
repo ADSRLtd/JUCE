@@ -213,6 +213,8 @@ public:
     /** You can assign a lambda to this callback object to have it called when the button is clicked. */
     std::function<void()> onClick;
 
+    std::function<void(const ModifierKeys&)> onClickWithMods;
+
     /** You can assign a lambda to this callback object to have it called when the button's state changes. */
     std::function<void()> onStateChange;
 
