@@ -210,6 +210,12 @@ public:
     */
     void reSortTable();
 
+    /** Set the column property flags to a new value.
+
+        This can cause an asynchronous callback to the tableColumnsChanged() method of any registered listeners.
+    */
+    void setColumnPropertyFlags(int columnId, int newPropertyFlags);
+
     //==============================================================================
     /** Returns the total width of all the visible columns in the table.
     */
