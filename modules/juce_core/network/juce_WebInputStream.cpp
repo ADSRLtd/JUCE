@@ -52,6 +52,7 @@ StringPairArray WebInputStream::getRequestHeaders() const                      {
 StringPairArray WebInputStream::getResponseHeaders()                           { connect (nullptr); return pimpl->getResponseHeaders(); }
 bool WebInputStream::isError() const                                           { return pimpl->isError(); }
 void WebInputStream::cancel()                                                  { pimpl->cancel(); }
+bool WebInputStream::wasCancelled() const                                      { return pimpl->wasCancelled(); }
 bool WebInputStream::isExhausted()                                             { return pimpl->isExhausted(); }
 int64 WebInputStream::getPosition()                                            { return pimpl->getPosition(); }
 int64 WebInputStream::getTotalLength()                                         { connect (nullptr); return pimpl->getTotalLength(); }

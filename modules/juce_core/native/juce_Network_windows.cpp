@@ -171,6 +171,7 @@ public:
     }
 
     bool isError() const        { return request == nullptr; }
+    bool wasCancelled() const   { return hasBeenCancelled; }
     bool isExhausted()          { return finished; }
     int64 getPosition()         { return position; }
 

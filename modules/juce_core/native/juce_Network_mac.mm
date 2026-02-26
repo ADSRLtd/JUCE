@@ -907,6 +907,7 @@ public:
 
     //==============================================================================
     bool isError() const                { return (! connection.has_value() || connection->getHeaders() == nullptr); }
+    bool wasCancelled() const           { return hasBeenCancelled; }
     int64 getTotalLength()              { return ! connection.has_value() ? -1 : connection->getContentLength(); }
     bool isExhausted()                  { return finished; }
     int64 getPosition()                 { return position; }
