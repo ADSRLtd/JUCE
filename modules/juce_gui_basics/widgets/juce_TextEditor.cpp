@@ -287,13 +287,16 @@ bool TextEditor::redo()     { return undoOrRedo (false); }
 
 //==============================================================================
 void TextEditor::setMultiLine (const bool shouldBeMultiLine,
-                               const bool shouldWordWrap)
+                               const bool shouldWordWrap,
+                               const bool shouldUpdateEmptyTextJustification)
 {
     if (multiline != shouldBeMultiLine
          || wordWrap != (shouldWordWrap && shouldBeMultiLine))
     {
         multiline = shouldBeMultiLine;
         wordWrap = shouldWordWrap && shouldBeMultiLine;
+        if (shouldUpdateEmptyTextJustification)
+            emptyTextJustification = Justification::centred;
         updateBaseShapedTextOptions();
 
         checkLayout();
@@ -1010,6 +1013,15 @@ int TextEditor::getMaximumTextHeight() const
     return jmax (1, viewport->getMaximumVisibleHeight() - topIndent);
 }
 
+void TextEditor::setEmptyTextJustification (Justification j)
+{
+    if (emptyTextJustification != j)
+    {
+        emptyTextJustification = j;
+        resized();
+    }
+}
+
 void TextEditor::checkLayout()
 {
     if (getWordWrapWidth() > 0)
@@ -1513,7 +1525,7 @@ void TextEditor::paintOverChildren (Graphics& g)
                                    getHeight() - topIndent);
 
         if (! textBounds.isEmpty())
-            g.drawText (textToShowWhenEmpty, textBounds, justification, true);
+            g.drawText (textToShowWhenEmpty, textBounds, emptyTextJustification, true);
     }
 
     getLookAndFeel().drawTextEditorOutline (g, getWidth(), getHeight(), *this);

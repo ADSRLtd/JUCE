@@ -85,7 +85,8 @@ public:
         @see isMultiLine, setReturnKeyStartsNewLine, setScrollbarsShown
     */
     void setMultiLine (bool shouldBeMultiLine,
-                       bool shouldWordWrap = true);
+                       bool shouldWordWrap = true,
+                       bool shouldUpdateEmptyTextJustification = true);
 
     /** Returns true if the editor is in multi-line mode. */
     bool isMultiLine() const;
@@ -544,6 +545,9 @@ public:
     /** Modifies the justification of the text within the editor window. */
     void setJustification (Justification newJustification);
 
+    /** Modifies the horizontal justification of the empty text shown within the editor window. */
+    void setEmptyTextJustification (Justification newJustification);
+
     /** Returns the type of justification, as set in setJustification(). */
     Justification getJustificationType() const noexcept             { return justification; }
 
@@ -802,6 +806,7 @@ private:
     TextHolderComponent* textHolder;
     BorderSize<int> borderSize { 1, 1, 1, 3 };
     Justification justification { Justification::topLeft };
+    Justification emptyTextJustification { Justification:: left };
     const GlobalMouseListener globalMouseListener { *this };
 
     bool readOnly = false;
